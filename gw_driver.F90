@@ -35,7 +35,7 @@ program gw_driver
   character(len=128) :: errstring
   
   ! Type of forcing data
-  character(len=128) :: ncdata_type
+  !character(len=128) :: ncdata_type
 
   integer ncid,status, dimid,varid  ! for netCDF data file
 
@@ -87,14 +87,15 @@ program gw_driver
   integer :: lchnk, n_rdg
 
   nlfile='atm_in'
-  ncdata_type = 'ERA5_SE_IC'
-  ncdata_type = 'camsnap'
+  !ncdata_type = 'ERA5_SE_IC'
+  !ncdata_type = 'camsnap'
 
   write( *,* ) "Hello ... "
   call gw_rdg_readnl( nlfile )
   call genl_readnl( nlfile ) !, bnd_topo, ncdata )
 
   write(*,*) "ncdata :",ncdata
+  write(*,*) "ncdata_type :",ncdata_type
   write(*,*) "bnd_topo :",bnd_topo
   write(*,*) " n_rdg_beta: ", n_rdg_beta
   write(*,*) " trpd_leewv_rdg_beta: ",  trpd_leewv_rdg_beta

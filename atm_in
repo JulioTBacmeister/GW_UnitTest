@@ -1,14 +1,16 @@
-&cam_initfiles_sv_nl
+&cam_initfiles_nl
  bnd_topo		= '/glade/work/juliob/bndtopo/ne30pg3_gmted2010_modis_bedmachine_nc3000_Laplace0100_noleak_20240720.nc'
  ncdata		= '/glade/campaign/cgd/amp/juliob/ERA5/ne30pg3/L93/2014/ERA5_x_ne30pg3_L93_rgC2_WO.2014-01-15-00000.nc'
  scale_dry_air_mass		=   98288.0D0 
- use_topo_file		=  .true.  
+ use_topo_file		=  .true.
+ ncdata_type = 'ERA5_SE_IC'
 /
-&cam_initfiles_nl
+&cam_initfiles_sv_nl
  bnd_topo		= '/glade/work/juliob/bndtopo/ne30pg3_gmted2010_modis_bedmachine_nc3000_Laplace0100_noleak_20240720.nc'
  ncdata		= '/glade/derecho/scratch/juliob/archive/ndg_Rdg02_c6455g3/atm/hist/ndg_Rdg02_c6455g3.cam.h2i.2014-01-15-00000.nc'
  scale_dry_air_mass		=   98288.0D0 
  use_topo_file		=  .true.  
+ ncdata_type = 'camsnap'
 /
 &gw_drag_nl
  alpha_gw_movmtn		= 0.008d0

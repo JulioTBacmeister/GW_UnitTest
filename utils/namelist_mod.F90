@@ -11,7 +11,7 @@ implicit none
 ! Declare all variables
 
 ! === cam_initfiles_nl ===
-character(len=256) :: bnd_topo, ncdata, gw_drag_file, gw_drag_file_mm
+character(len=256) :: bnd_topo, ncdata, gw_drag_file, gw_drag_file_mm, ncdata_type
 real(8) :: scale_dry_air_mass
 
 ! === gw_drag_nl ===
@@ -46,7 +46,7 @@ logical :: use_hetfrz_classnuc, use_simple_phys, use_subcol_microp
 public :: genl_readnl
 
 ! Single public line for all variables
-public :: bnd_topo, ncdata, scale_dry_air_mass, use_topo_file, &
+public :: bnd_topo, ncdata, scale_dry_air_mass, use_topo_file,ncdata_type, &
      alpha_gw_movmtn, effgw_beres_dp, effgw_cm, effgw_movmtn_pbl, &
      effgw_rdg_beta, effgw_rdg_beta_max, effgw_rdg_resid, front_gaussian_width, &
      frontgfc, gw_apply_tndmax, gw_dc, gw_dc_long, gw_drag_file, &
@@ -88,7 +88,7 @@ subroutine genl_readnl(nlfile ) !, bnd_topo, ncdata )
   logical :: use_topo_file
   real(r8) ::  scale_dry_air_mass
 
-  namelist /cam_initfiles_nl/ bnd_topo, ncdata, scale_dry_air_mass, use_topo_file
+  namelist /cam_initfiles_nl/ bnd_topo, ncdata, scale_dry_air_mass, use_topo_file, ncdata_type
 
   namelist /gw_drag_nl/ alpha_gw_movmtn, effgw_beres_dp, effgw_cm, effgw_movmtn_pbl, &
      effgw_rdg_beta, effgw_rdg_beta_max, effgw_rdg_resid, front_gaussian_width, &

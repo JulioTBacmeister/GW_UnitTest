@@ -4,7 +4,7 @@
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   use namelist_mod, only: genl_readnl
   ! --- cam_initfiles
-  use namelist_mod, only: bnd_topo, ncdata, scale_dry_air_mass, use_topo_file
+  use namelist_mod, only: bnd_topo, ncdata, scale_dry_air_mass, use_topo_file, ncdata_type
   ! --- gw_drag
   use namelist_mod, only: alpha_gw_movmtn, effgw_beres_dp, effgw_cm, effgw_movmtn_pbl, &
      effgw_rdg_beta, effgw_rdg_beta_max, effgw_rdg_resid, front_gaussian_width, &
