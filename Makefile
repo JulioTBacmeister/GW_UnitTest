@@ -16,12 +16,12 @@ SRCS = \
     share/shr_string_mod.F90 \
     share/shr_file_mod.F90 \
     share/shr_nl_mod.F90 \
+    utils/physconst.F90 \
     utils/ncread_mod.F90 \
     utils/units.F90 \
     utils/namelist_utils.F90 \
     utils/cam_abortutils.F90 \
     utils/namelist_mod.F90 \
-    utils/physconst.F90 \
     utils/coords_1d.F90 \
     utils/linear_1d_operators.F90 \
     utils/vdiff_lu_solver.F90 \
@@ -62,7 +62,7 @@ run: $(EXEC)
 
 # === Clean targets ===
 clean:
-	rm -f $(OBJS) $(TARGET_LIB) $(EXEC) $(PYTHON_MODULE) *.mod
+	rm -f $(OBJS) $(TARGET_LIB) $(EXEC) $(PYTHON_MODULE) *.mod GW.dat
 
 clean_python:
 	rm -f $(PYTHON_MODULE)

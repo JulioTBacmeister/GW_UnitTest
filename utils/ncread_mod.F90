@@ -4,6 +4,7 @@ module ncread_mod
 ! This module 
 !
 use shr_kind_mod, only: r8 => shr_kind_r8
+use physconst, only: rearth
 use netcdf
 
 
@@ -80,6 +81,9 @@ subroutine ncread_topo(ncfile, mxdis, angll, aniso, anixy, hwdth, clngt, gbxar, 
   status = NF90_INQ_VARID(ncid, 'SGH', varid)
   status = NF90_GET_VAR(ncid, varid, sgh )
   write(*,*) " SGH   ", minval(sgh ),maxval(sgh )
+
+  ! Scale gbxar as it is done in CAM. This needs to checked out. (3/1/25)
+  gbxar = gbxar * (rearth/1000._r8)*(rearth/1000._r8) ! transform to km^2
 
 
 end subroutine ncread_topo
@@ -170,7 +174,7 @@ end subroutine ncread_era5_se_ic
 subroutine ncread_camsnap(ncfile , ncol, pver, ntim, &
      hyai , hybi , hyam , hybm , lon , lat , &
      PS, U , V , T  , Q , &
-     zm, zi, nm, ni, rhoi )
+     zm, zi, nm, ni, rhoi, pint, piln )
 
   character(len=*), intent(in) :: ncfile
   
@@ -180,6 +184,7 @@ subroutine ncread_camsnap(ncfile , ncol, pver, ntim, &
   real(r8) , allocatable, intent(out) :: lon(:), lat(:)
   real(r8) , allocatable, intent(out) :: U(:,:,:), V(:,:,:), T(:,:,:), Q(:,:,:), PS(:,:)
   real(r8) , allocatable, intent(out) :: zm(:,:,:), zi(:,:,:), nm(:,:,:), ni(:,:,:), rhoi(:,:,:)
+  real(r8) , allocatable, intent(out) :: pint(:,:,:), piln(:,:,:)
 
   integer ncid,status, dimid,varid  ! for netCDF data file
   
@@ -202,6 +207,7 @@ subroutine ncread_camsnap(ncfile , ncol, pver, ntim, &
   
   allocate(  U(ncol,pver,ntim) , V(ncol,pver,ntim) , T(ncol,pver,ntim) , Q(ncol,pver,ntim) , PS(ncol,ntim) )
   allocate(  zm(ncol,pver,ntim) , zi(ncol,pver+1,ntim) , nm(ncol,pver,ntim) , ni(ncol,pver+1,ntim)  )
+  allocate(  pint(ncol,pver+1,ntim) , piln(ncol,pver+1,ntim)    )
   allocate(  rhoi(ncol,pver+1,ntim)   )
   allocate(  lat(ncol) , lon(ncol)  )
   allocate(  hyai(pver+1) , hybi(pver+1) , hyam(pver) , hybm(pver)  )
@@ -245,11 +251,11 @@ subroutine ncread_camsnap(ncfile , ncol, pver, ntim, &
   status = NF90_GET_VAR(ncid, varid, Q )
   write(*,*) "Got ","Q   ",minval(Q), maxval(Q)
 
-  status = NF90_INQ_VARID(ncid, 'ZEGW', varid)
+  status = NF90_INQ_VARID(ncid, 'ZIEGW', varid)
   status = NF90_GET_VAR(ncid, varid, zi )
   write(*,*) "Got ","zi   ",minval(zi), maxval(zi)
 
-  status = NF90_INQ_VARID(ncid, 'ZMGW', varid)
+  status = NF90_INQ_VARID(ncid, 'ZMEGW', varid)
   status = NF90_GET_VAR(ncid, varid, zm )
   write(*,*) "Got ","zm   ",minval(zm), maxval(zm)
   
@@ -264,6 +270,14 @@ subroutine ncread_camsnap(ncfile , ncol, pver, ntim, &
   status = NF90_INQ_VARID(ncid, 'RHOIEGW', varid)
   status = NF90_GET_VAR(ncid, varid, rhoi )
   write(*,*) "Got ","rhoi   ",minval(rhoi), maxval(rhoi)
+
+  status = NF90_INQ_VARID(ncid, 'PINTEGW', varid)
+  status = NF90_GET_VAR(ncid, varid, pint )
+  write(*,*) "Got ","pint   ",minval(pint), maxval(pint)
+
+  status = NF90_INQ_VARID(ncid, 'PILNEGW', varid)
+  status = NF90_GET_VAR(ncid, varid, piln )
+  write(*,*) "Got ","piln   ",minval(piln), maxval(piln)
   
 end subroutine ncread_camsnap
 

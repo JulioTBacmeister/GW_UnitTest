@@ -223,6 +223,11 @@ subroutine gw_rdg_calc( &
          ubmsrc, nsrc, rsrc, m2src, tlb, bwv, Fr1, Fr2, Frx, &
          tauoro, taudsw, hdspwv, hdspdw)
 
+#ifdef UNITTEST
+      if (nn == 1) then
+         write(20) tau(:,0,:)
+      end if
+#endif
 
       call gw_rdg_break_trap(ncol, band_oro, &
          zi, nm, ni, ubm, ubi, rhoi, kwvrdg , bwv, tlb, wbr, &
@@ -231,6 +236,12 @@ subroutine gw_rdg_calc( &
          ldo_trapped_waves=trpd_leewv)
 
 
+#ifdef UNITTEST
+      if (nn == 1) then
+         write(20) tau(:,0,:)
+      end if
+#endif
+      
       call gw_drag_prof(ncol, band_oro, p, src_level, tend_level, dt, &
          t, vramp,    &
          piln, rhoi, nm, ni, ubm, ubi, xv, yv,   &
@@ -266,8 +277,16 @@ subroutine gw_rdg_calc( &
 
 #ifdef UNITTEST
       if (nn == 1) then
+         write(20) bwv
+         write(20) tlb
+         write(20) wbr
+         write(20) ubmsrc
+         write(20) nsrc
+         write(20) tauoro
+         write(20) taudsw
          write(20) ubm
          write(20) tau(:,0,:)
+         write(20) tau_diag
       end if
 #else
       if (nn == 1) then

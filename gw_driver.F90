@@ -50,6 +50,7 @@ program gw_driver
   real(r8) , allocatable :: lon(:), lat(:)
   real(r8) , allocatable :: U(:,:,:), V(:,:,:), T(:,:,:), Q(:,:,:), PS(:,:)
   real(r8) , allocatable :: nm_(:,:,:), ni_(:,:,:), zm_(:,:,:), zi_(:,:,:), rhoi_(:,:,:)
+  real(r8) , allocatable :: pint_(:,:,:), piln_(:,:,:)
 
   ! Additional fields that will be needed
   ! (Direct ... have dummy time dim)
@@ -67,7 +68,7 @@ program gw_driver
   real(r8) ::  prndl,dt
   
   ! Horrible, pointless construct 
-  type(Coords1D) :: p               ! Pressure coordinates
+  type(Coords1D) :: PP               ! Pressure coordinates
 
   ! ptend derived typ ...
   type(physics_ptend) :: ptend
@@ -104,99 +105,100 @@ program gw_driver
   call ncread_topo( bnd_topo , mxdis, angll, aniso, anixy, hwdth, clngt, gbxar, isovar, isowgt, sgh )
 
 
-  !! erafile = '/glade/campaign/cgd/amp/juliob/ERA5/ne30pg3/L93/2014/ERA5_x_ne30pg3_L93_rgC2_WO.2014-01-15-00000.nc'
+  itime=1
 
   if ( trim(ncdata_type) == 'ERA5_SE_IC') then
      write(*,*) "ERA5 IC data"
      call ncread_era5_se_ic( ncdata , ncol, pver , ntim, &
           hyai , hybi , hyam , hybm , lon , lat , &
           PS, U , V , T  , Q )
-  else if ( trim(ncdata_type) == 'camsnap') then
-     write(*,*) "Wahhooo"
-     call ncread_camsnap( ncdata , ncol, pver , ntim, &
-          hyai , hybi , hyam , hybm , lon , lat , &
-          PS, U , V , T  , Q , &
-          zm_, zi_, nm_, ni_, rhoi_ )
-  else
-     write(*,*) "Wahhooo"
-  end if
 
-  pcols = ncol ! does this actaully go back to ppgrid? Yes.
-  pver_in_ppgrid = pver
+     pcols = ncol ! does this actaully go back to ppgrid? Yes.
+     pver_in_ppgrid = pver
 
-  itime=1
+     call make_pressures( ncol, pver, ntim, hyai, hybi, hyam, hybm, PS, pint, pmid )
 
-  write( *,* ) "Hello ... Back in driver"
-  write(*,*) "Got ","PS  ",minval(PS), maxval(PS)  
-  write(*,*) "Got ","U   ",minval(U), maxval(U)
-  write(*,*) "Got ","V   ",minval(V), maxval(V)  
-  write(*,*) "Got ","T   ",minval(T), maxval(T)
-  write(*,*) "Got ","Q   ",minval(Q), maxval(Q)
+     write(*,*) "Made ","pint   ",minval(pint), maxval(pint), shape(pint)
+     write(*,*) "Made ","pmid   ",minval(pmid), maxval(pmid), shape(pmid)
 
-  !allocate( pmid(ncol,pver) , pint(ncol, pver+1) )
-  
-  call make_pressures( ncol, pver, ntim, hyai, hybi, hyam, hybm, PS, pint, pmid )
-
-  write(*,*) "Made ","pint   ",minval(pint), maxval(pint), shape(pint)
-  write(*,*) "Made ","pmid   ",minval(pmid), maxval(pmid), shape(pmid)
-
-  p = Coords1D(pint(:ncol,:,itime))
-  write(*,*) "P%ifc "
-  write(*,*) minval( p%ifc ),maxval( p%ifc ), shape(p%ifc)
-
-  ! Will need these also
-  allocate( piln(ncol,pver+1,ntim), pmln(ncol,pver,ntim) )
-  piln = log( pint )
-  pmln = log( pmid )
-
-  allocate( pref_edge(pver+1)  )
-  pref_edge(:) = 100000. * ( hyai(:) + hybi(:) )
-
-  call leovy_alpha( pver, pref_edge, alpha )
-  write(*,*) "Made ","alpha   ",minval(alpha), maxval(alpha), shape(alpha)
-
-  call gw_common_init(pver,&
-       tau_0_ubc, ktop, gravit, rair, alpha, & 
-       gw_prndl, gw_qbo_hdepth_scaling, & 
-       errstring)
-
-  allocate( rhoi(ncol,pver+1) , ni(ncol, pver+1), nm(ncol, pver), dse(ncol,pver) )
-  allocate( kvtt(ncol,pver+1) , flx_heat(ncol) )
-
-
-  ! Profiles of background state variables
-  call gw_prof(ncol, p, cpair, T(:,:,itime), rhoi, nm, ni)
-
-  write(*,*) "Made ","nm     ",minval(nm), maxval(nm), shape(nm)
-  write(*,*) "Made ","ni     ",minval(ni), maxval(ni), shape(ni)
-  write(*,*) "Made ","rhoi   ",minval(rhoi), maxval(rhoi), shape(rhoi)
-
-  if ( trim(ncdata_type) == 'camsnap') then
-     write(*,*) "Override w/ camsnap "
-     allocate( zm(ncol,pver) , zi(ncol,pver+1) )
-     zm = zm_(:,:,itime)
-     zi = zi_(:,:,itime)
-     nm = nm_(:,:,itime)
-     ni = ni_(:,:,itime)
-     rhoi = rhoi_(:,:,itime)
+     ! Will need these also
+     allocate( piln(ncol,pver+1,ntim), pmln(ncol,pver,ntim) )
+     piln = log( pint )
+     pmln = log( pmid )
      
-  end if
-  ! At this point if zm and zi have been allocated it means they have
-  ! read in or calculated
-  if ( (.not.allocated(zm)) .and. (.not.allocated(zi)) ) then
+     PP = Coords1D(pint(:ncol,:,itime))
+     write(*,*) "PP%ifc "
+     write(*,*) minval( PP%ifc ),maxval( PP%ifc ), shape(PP%ifc)
+
+
+     allocate( pref_edge(pver+1)  )
+     pref_edge(:) = 100000. * ( hyai(:) + hybi(:) )
+
+     call leovy_alpha( pver, pref_edge, alpha )
+     write(*,*) "Made ","alpha   ",minval(alpha), maxval(alpha), shape(alpha)
+
+     call gw_common_init(pver,&
+          tau_0_ubc, ktop, gravit, rair, alpha, & 
+          gw_prndl, gw_qbo_hdepth_scaling, & 
+          errstring)
+     
+
+     allocate( rhoi(ncol,pver+1) , ni(ncol, pver+1), nm(ncol, pver)  )
+     ! Profiles of background state variables
+     call gw_prof(ncol, PP, cpair, T(:,:,itime), rhoi, nm, ni)
+
      write(*,*) "NEED GOEPHT"
      allocate( zm(ncol,pver) , zi(ncol,pver+1), rair3D(ncol,pver), zvir3D(ncol,pver) )
      rair3D(:,:) = rair
      zvir3D(:,:) = zvir
      call geopotential_t( ncol , pver ,                   &
        piln(:,:,itime)   , pmln(:,:,itime)   , &
-       pint(:,:,itime)   , pmid(:,:,itime)   , P%del   , P%rdel  , &
+       pint(:,:,itime)   , pmid(:,:,itime)   , PP%del   , PP%rdel  , &
        T(:,:,itime) , Q(:,:,itime)  , rair3D   , gravit , zvir3D   ,   &
        zi     , zm     )
 
      write(*,*)  "Made ","ZI   ",minval(zi), maxval(zi), shape(zi)
+
+  else if ( trim(ncdata_type) == 'camsnap') then
+     write(*,*) "Wahhooo"
+     call ncread_camsnap( ncdata , ncol, pver , ntim, &
+          hyai , hybi , hyam , hybm , lon , lat , &
+          PS, U , V , T  , Q , &
+          zm_, zi_, nm_, ni_, rhoi_, pint , piln )
+     
+     pcols = ncol ! does this actaully go back to ppgrid? Yes.
+     pver_in_ppgrid = pver
+
+     allocate( zm(ncol,pver) , zi(ncol,pver+1) )
+     allocate( rhoi(ncol,pver+1) , ni(ncol, pver+1), nm(ncol, pver)  )
+
+     PP = Coords1D(pint(:ncol,:,itime))
+     write(*,*) "PP%ifc "
+     write(*,*) minval( PP%ifc ),maxval( PP%ifc ), shape(PP%ifc)
+
+     zm = zm_(:,:,itime)
+     zi = zi_(:,:,itime)
+     nm = nm_(:,:,itime)
+     ni = ni_(:,:,itime)
+     rhoi = rhoi_(:,:,itime)
+
+
+     allocate( pref_edge(pver+1)  )
+     pref_edge(:) = 100000. * ( hyai(:) + hybi(:) )
+
+     call leovy_alpha( pver, pref_edge, alpha )
+     write(*,*) "Made ","alpha   ",minval(alpha), maxval(alpha), shape(alpha)
+
+     call gw_common_init(pver,&
+          tau_0_ubc, ktop, gravit, rair, alpha, & 
+          gw_prndl, gw_qbo_hdepth_scaling, & 
+          errstring)
+     
+  else
+     write(*,*) "Wahhooo"
   end if
 
+  allocate( dse(ncol,pver) )
   dse = cpair*T(:,:,itime) + gravit*zm
   
   allocate( lqptend(pcnst))
@@ -217,14 +219,31 @@ program gw_driver
 
   lchnk=1
 
+ 
+  write(*,*) "At input ","U      ",minval(U),    maxval(U),    shape(U)
+  write(*,*) "At input ","V      ",minval(V),    maxval(V),    shape(V)
+  write(*,*) "At input ","T      ",minval(T),    maxval(T),    shape(T)
+  write(*,*) "At input ","Q      ",minval(Q),    maxval(Q),    shape(Q)
+  write(*,*) "At input ","zm     ",minval(zm),   maxval(zm),   shape(zm)
+  write(*,*) "At input ","zi     ",minval(zi),   maxval(zi),   shape(zi)
+  write(*,*) "At input ","nm     ",minval(nm),   maxval(nm),   shape(nm)
+  write(*,*) "At input ","ni     ",minval(ni),   maxval(ni),   shape(ni)
+  write(*,*) "At input ","rhoi   ",minval(rhoi), maxval(rhoi), shape(rhoi)
+  write(*,*) "At input ","pint   ",minval(pint), maxval(pint), shape(pint)
+  write(*,*) "At input ","piln   ",minval(piln), maxval(piln), shape(piln)
+  write(*,*) "At input ","PP%ifc ",minval(PP%ifc), maxval(PP%ifc), shape(PP%ifc)
+
+  
 #if 1
   ! Doing the calculation
+  !   - need to allocate some vars
+  allocate( kvtt(ncol,pver+1) , flx_heat(ncol) )
   n_rdg=1
   dt = 86400._r8 /48._r8 
   call gw_rdg_calc( &
    'BETA ', ncol, lchnk, n_rdg, dt, &
    U(:,:,itime) , V(:,:,itime) , T(:,:,itime) , &
-   P, piln(:,:,itime) , zm, zi, &
+   PP , piln(:,:,itime) , zm, zi, &
    nm, ni, rhoi, kvtt, Q(:,:,:), dse, &
    effgw_rdg_beta, effgw_rdg_beta_max, &
    effgw_rdg_resid, use_gw_rdg_resid, &
