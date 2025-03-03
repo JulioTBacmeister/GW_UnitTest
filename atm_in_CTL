@@ -56,7 +56,7 @@
  gw_rdg_do_backward_compat		= .false.
  gw_rdg_do_divstream		= .true.
  gw_rdg_do_smooth_regimes		= .false. 
- gw_rdg_fr_c		= 0.1D0
+ gw_rdg_fr_c		= 1.0D0
  gw_rdg_frx0		=  2.0d0  
  gw_rdg_frx1		=  3.0d0  
  gw_rdg_orohmin		=  0.01d0 
