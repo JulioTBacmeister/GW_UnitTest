@@ -26,3 +26,5 @@ Test harness for GW codes
 3) Some new files have been created that are not in cam code base.
 
 4) At some point a guide to the provenance of each file will be provided.
+
+5) Added ChangeLog 9/2/2025. Still bit-for-bit with cam6_4_109.

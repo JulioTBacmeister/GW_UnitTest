@@ -1,0 +1,83 @@
+! Users should add all user specific namelist changes below in the form of 
+! namelist_var = new_namelist_value 
+ 
+ 
+ 
+bnd_topo= '/glade/work/juliob/bndtopo/ne30pg3_gmted2010_modis_bedmachine_nc3000_Laplace0100_noleak_20240720.nc'
+
+! Possibly inconsistent IC file
+ncdata	= '/glade/campaign/cgd/amp/juliob/ERA5/ne30np4/L93/ERA5_x_ne30np4_L93_rgC2_WO.2014-01-01-00000.nc'
+
+empty_htapes = .true.
+
+fincl1 = 'ACTNI', 'ACTNL', 'ACTREI', 'ACTREL', 'AODDUST', 'AODVIS', 'AODVISdn','BURDENBC', 'BURDENDUST', 'BURDENPOM', 'BURDENSEASALT', 
+'BURDENSO4', 'BURDENSOA', 'CAPE', 'CCN3', 'CDNUMC', 'CH4', 'CLDHGH', 'CLDICE', 'CLDLIQ', 'CLDLOW', 'CLDMED', 'CLDTOT', 'CLOUD', 'CMFMC_DP', 
+'CT_H2O', 'DCQ', 'DQCORE', 'DTCOND', 'DTCORE', 'DTV', 'EVAPPREC', 'EVAPSNOW', 'FCTI', 'FCTL', 'FICE', 'FLDS', 'FLNS', 'FLNSC', 'FLNT', 'FLNTC', 'FLUT', 
+'FREQZM', 'FSDS', 'FSDSC', 'FSNS', 'FSNSC', 'FSNT', 'FSNTC', 'FSNTOA', 'ICEFRAC', 'LANDFRAC', 'LHFLX', 'LWCF', 'MPDICE', 'MPDLIQ', 'MPDQ', 'MPDT', 
+'OCNFRAC', 'OMEGA', 'OMEGA500', 'PBLH', 'PHIS', 'PINT', 'PMID', 'PRECC', 'PRECL', 'PRECSC', 'PRECSL', 'PRECT', 'PS', 'PSL', 'PTEQ', 'PTTEND', 'Q', 
+'QFLX', 'QRL', 'QRS', 'QTGW', 'RELHUM', 'SHFLX', 'SOLIN', 'SST', 'SWCF', 'OMEGAU',
+'T', 'TAUX', 'TAUY', 'TFIX', 'TGCLDIWP', 'TGCLDLWP', 'TMQ', 'TREFHT', 'TS', 'TTGW', 'U', 'U10', 'UBOT', 'UTGWORO', 'UTGW_TOTAL', 
+'V', 'VBOT', 'VTGWORO', 'VTGW_TOTAL', 'Z3', 'ZMDQ', 'ZMDT', 'N2O', 'CO2','Nudge_U','Nudge_V','UTEND_CORE', 'VTEND_CORE', 'UTEND_PHYSTOT',
+'VTEND_PHYSTOT','UTEND_GWDTOT', 'VTEND_GWDTOT'
+
+
+fincl2='U:I','V:I','T:I','Q:I','OMEGA:I','PINT:I','PS:I','Target_U:I','Target_V:I'
+
+!for ridge code diagnosis
+!--------------------------
+fincl3 = 'TAUDSW1:I','TAUORO1:I','TAU1RDGBETAM:I','UBM1BETA:I','UEGW:I','VEGW:I',
+       'TEGW:I','QEGW:I','ZMEGW:I','ZIEGW:I','RHOIEGW:I','NIEGW:I','NMEGW:I','MXDIS1:I',
+       'PSEGW:I','PINTEGW:I','PILNEGW:I','VORT4GW:I','XPWP_MOVMTN:I',
+       'USRC1:I','VSRC1:I','NSRC1:I','UBMSRC1:I','WBR_HT1:I','TLB_HT1:I','BWV_HT1:I',
+       'TAUM1_DIAG:I','TAUM1_DIAG_A:I','TAUM1_DIAG_B:I',
+       'Fr1_DIAG:I','Fr2_DIAG:I','Frx_DIAG:I','HWDTH1:I','CLNGT1:I'
+       
+
+mfilt=1,1,1
+nhtfrq=0,-6,-6
+
+
+! default as of (1/29/25)
+effgw_rdg_resid = 0.5
+use_gw_rdg_resid = .true.
+alpha_gw_movmtn	=  0.008d0
+use_gw_movmtn_pbl = .true.
+
+
+&nudging_nl
+ model_times_per_day		= 48
+ nudge_beg_day		= 1
+ nudge_beg_month		= 1
+ nudge_beg_year		= 2000
+ nudge_end_day		= 31
+ nudge_end_month		= 12
+ nudge_end_year		= 2018
+ nudge_file_template		= 'ERA5_x_ne30pg3_L93_rgC2_WO.%y-%m-%d-%s.nc'
+ nudge_force_opt		= 0
+ nudge_hwin_invert		= .false.
+ nudge_hwin_lat0		= 0.0
+ nudge_hwin_latdelta		= 1.0
+ nudge_hwin_latwidth		= 9999.0
+ nudge_hwin_lon0		= 180.
+ nudge_hwin_londelta		= 1.0
+ nudge_hwin_lonwidth		= 9999.0
+ nudge_model		= .true.
+ nudge_path		= '/glade/campaign/cgd/amp/juliob/QBO_nudging/ne30pg3/L93_cdf5/'
+ nudge_pscoef		= 0
+ nudge_psprof		= 0
+ nudge_qcoef		= 0.0
+ nudge_qprof		= 2
+ nudge_tcoef		= 0.0
+ nudge_times_per_day		= 24
+ nudge_timescale_opt		= 0
+ nudge_tprof		= 2
+ nudge_ucoef		= 0.16667
+ nudge_uprof		= 2
+ nudge_vcoef		= 0.16667
+ nudge_vprof		= 2
+ nudge_vwin_hdelta		= 0.001
+ nudge_vwin_hindex		= 0.
+ nudge_vwin_invert		= .true.
+ nudge_vwin_ldelta		= 0.001
+ nudge_vwin_lindex		= 0.
+/

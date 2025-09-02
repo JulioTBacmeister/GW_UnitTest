@@ -1,0 +1,2 @@
+2025-09-02:
+Reran nudging experiments with tag~cam6_4_109. Created new cam snapshots. This Unit test is still bit-for-bit with full model. Modified atm_in. Added subdir for cam_files and placed copy of latest nugding run user_nl_cam. Added this file.
