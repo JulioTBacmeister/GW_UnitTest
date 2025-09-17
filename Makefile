@@ -20,6 +20,7 @@ SRCS = \
     utils/ncread_mod.F90 \
     utils/units.F90 \
     utils/namelist_utils.F90 \
+    utils/phys_control.F90 \
     utils/cam_abortutils.F90 \
     utils/namelist_mod.F90 \
     utils/coords_1d.F90 \
@@ -34,6 +35,8 @@ SRCS = \
     src/gw_diffusion.F90 \
     src/gw_common.F90 \
     src/gw_rdg.F90 \
+    src/gw_movmtn.F90 \
+    src/gw_movmtn_calc_mod.F90 \
     src/gw_rdg_calc_mod.F90
 
 OBJS = $(SRCS:.F90=.o)

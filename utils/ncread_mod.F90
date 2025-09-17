@@ -173,7 +173,7 @@ end subroutine ncread_era5_se_ic
 
 subroutine ncread_camsnap(ncfile , ncol, pver, ntim, &
      hyai , hybi , hyam , hybm , lon , lat , &
-     PS, U , V , T  , Q , &
+     PS, U , V , T  , Q , ZETA , &
      zm, zi, nm, ni, rhoi, pint, piln )
 
   character(len=*), intent(in) :: ncfile
@@ -182,7 +182,7 @@ subroutine ncread_camsnap(ncfile , ncol, pver, ntim, &
   
   real(r8) , allocatable, intent(out) :: hyai(:), hybi(:), hyam(:), hybm(:)
   real(r8) , allocatable, intent(out) :: lon(:), lat(:)
-  real(r8) , allocatable, intent(out) :: U(:,:,:), V(:,:,:), T(:,:,:), Q(:,:,:), PS(:,:)
+  real(r8) , allocatable, intent(out) :: U(:,:,:), V(:,:,:), T(:,:,:), Q(:,:,:), PS(:,:), ZETA(:,:,:)
   real(r8) , allocatable, intent(out) :: zm(:,:,:), zi(:,:,:), nm(:,:,:), ni(:,:,:), rhoi(:,:,:)
   real(r8) , allocatable, intent(out) :: pint(:,:,:), piln(:,:,:)
 
@@ -206,6 +206,7 @@ subroutine ncread_camsnap(ncfile , ncol, pver, ntim, &
 
   
   allocate(  U(ncol,pver,ntim) , V(ncol,pver,ntim) , T(ncol,pver,ntim) , Q(ncol,pver,ntim) , PS(ncol,ntim) )
+  allocate(  ZETA(ncol,pver,ntim)  )
   allocate(  zm(ncol,pver,ntim) , zi(ncol,pver+1,ntim) , nm(ncol,pver,ntim) , ni(ncol,pver+1,ntim)  )
   allocate(  pint(ncol,pver+1,ntim) , piln(ncol,pver+1,ntim)    )
   allocate(  rhoi(ncol,pver+1,ntim)   )
@@ -278,7 +279,16 @@ subroutine ncread_camsnap(ncfile , ncol, pver, ntim, &
   status = NF90_INQ_VARID(ncid, 'PILNEGW', varid)
   status = NF90_GET_VAR(ncid, varid, piln )
   write(*,*) "Got ","piln   ",minval(piln), maxval(piln)
-  
+
+  status = NF90_INQ_VARID(ncid, 'VORT4GW', varid)
+  IF (STATUS .NE. NF90_NOERR) then
+     write(*,*) "cant find VORT in "// trim(ncfile)
+     zeta = U*0.
+  else
+     status = NF90_GET_VAR(ncid, varid, zeta  )
+  end IF
+  write(*,*) "Range of ","ZETA   ",minval(zeta), maxval(zeta)
+   
 end subroutine ncread_camsnap
 
 end module ncread_mod

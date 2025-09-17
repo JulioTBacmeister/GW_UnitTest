@@ -14,8 +14,13 @@ program gw_driver
   use geopotential, only: geopotential_t
 
   ! set_band_rdg required to get band construct into
-  ! gw_rdg_calc_mod module.  
-  use gw_rdg_calc_mod, only : gw_rdg_calc, set_band_rdg, set_vramp, report_from_within
+  use gw_rdg_calc_mod, only : gw_rdg_calc, set_band_rdg
+  use gw_rdg_calc_mod, only : set_vramp_rdg => set_vramp
+  use gw_rdg_calc_mod, only : report_from_within_rdg => report_from_within
+  ! set_band_movmtn required to get band construct into
+  use gw_movmtn_calc_mod, only : gw_movmtn_calc, set_band_movmtn
+  use gw_movmtn_calc_mod, only : set_vramp_movmtn => set_vramp
+  use gw_movmtn_calc_mod, only : report_from_within_movmtn => report_from_within
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !   Huge messy import of all likely namelist params
@@ -48,7 +53,7 @@ program gw_driver
   ! Meteorolgical data  and dims
   real(r8) , allocatable :: hyai(:), hybi(:), hyam(:), hybm(:)
   real(r8) , allocatable :: lon(:), lat(:)
-  real(r8) , allocatable :: U(:,:,:), V(:,:,:), T(:,:,:), Q(:,:,:), PS(:,:)
+  real(r8) , allocatable :: U(:,:,:), V(:,:,:), T(:,:,:), Q(:,:,:), ZETA(:,:,:), PS(:,:)
   real(r8) , allocatable :: nm_(:,:,:), ni_(:,:,:), zm_(:,:,:), zi_(:,:,:), rhoi_(:,:,:)
   real(r8) , allocatable :: pint_(:,:,:), piln_(:,:,:)
 
@@ -74,7 +79,7 @@ program gw_driver
   type(physics_ptend) :: ptend
 
   ! A mid-scale "band" with only stationary waves (l = 0).
-  type(GWBand) :: band_oro
+  type(GWBand) :: band_oro , band_movmtn 
   ! Horzontal wavelengths for bands [m].
   real(r8), parameter :: wavelength_mid = 1.e5_r8
   real(r8), parameter :: wavelength_long = 1.e6_r8
@@ -100,6 +105,13 @@ program gw_driver
   write(*,*) "bnd_topo :",bnd_topo
   write(*,*) " n_rdg_beta: ", n_rdg_beta
   write(*,*) " trpd_leewv_rdg_beta: ",  trpd_leewv_rdg_beta
+  write(*,*) " .... "
+  write(*,*) " Some non-orog parameters. "
+  write(*,*) " movmtn_plaunch, movmtn_psteer, movmtn_source: ",movmtn_plaunch, movmtn_psteer, movmtn_source
+  write(*,*) " alpha_gw_movmtn: ",alpha_gw_movmtn
+  write(*,*) " use_gw_movmtn_pbl: ",use_gw_movmtn_pbl
+  write(*,*) " use_gw_rdg_beta: ",use_gw_rdg_beta
+  
 
   
   call ncread_topo( bnd_topo , mxdis, angll, aniso, anixy, hwdth, clngt, gbxar, isovar, isowgt, sgh )
@@ -159,11 +171,18 @@ program gw_driver
 
      write(*,*)  "Made ","ZI   ",minval(zi), maxval(zi), shape(zi)
 
+     !-----------------------------
+     ! Need to figure ZETA for ERA5
+     ! Set dummy var=0 for now
+     !------------------------------
+     allocate( ZETA(ncol,pver,ntim)  )
+     ZETA = 0._r8
+
   else if ( trim(ncdata_type) == 'camsnap') then
      write(*,*) "Wahhooo"
      call ncread_camsnap( ncdata , ncol, pver , ntim, &
           hyai , hybi , hyam , hybm , lon , lat , &
-          PS, U , V , T  , Q , &
+          PS, U , V , T  , Q , ZETA, &
           zm_, zi_, nm_, ni_, rhoi_, pint , piln )
      
      pcols = ncol ! does this actaully go back to ppgrid? Yes.
@@ -207,8 +226,13 @@ program gw_driver
 
   band_oro = GWBand(0, gw_dc, fcrit2, wavelength_mid)
 
-  call set_vramp()
-  call report_from_within()
+  call set_band_rdg(band_oro)
+  call set_vramp_rdg()
+  call report_from_within_rdg()
+
+  call set_band_movmtn(band_movmtn)
+  call set_vramp_movmtn()
+  call report_from_within_movmtn()
 
   ! Write multiple records
   open(unit=20, file='GW.dat', form='unformatted', access='stream', status='replace', action='write')
@@ -234,27 +258,38 @@ program gw_driver
   write(*,*) "At input ","PP%ifc ",minval(PP%ifc), maxval(PP%ifc), shape(PP%ifc)
 
   
-#if 1
+  if (use_gw_rdg_beta) then
   ! Doing the calculation
   !   - need to allocate some vars
-  allocate( kvtt(ncol,pver+1) , flx_heat(ncol) )
-  n_rdg=1
-  dt = 86400._r8 /48._r8 
-  call gw_rdg_calc( &
-   'BETA ', ncol, lchnk, n_rdg, dt, &
-   U(:,:,itime) , V(:,:,itime) , T(:,:,itime) , &
-   PP , piln(:,:,itime) , zm, zi, &
-   nm, ni, rhoi, kvtt, Q(:,:,:), dse, &
-   effgw_rdg_beta, effgw_rdg_beta_max, &
-   effgw_rdg_resid, use_gw_rdg_resid, &
-   hwdth, clngt, gbxar, &
-   mxdis, angll, anixy, &
-   isovar, isowgt, &
-   rdg_beta_cd_llb, trpd_leewv_rdg_beta, &
-   !++jtb  ptend defined in massively hacked physics_types
-   ptend, flx_heat) 
+     allocate( kvtt(ncol,pver+1) , flx_heat(ncol) )
+     n_rdg=1
+     dt = 86400._r8 /48._r8 
+     call gw_rdg_calc( &
+          'BETA ', ncol, lchnk, n_rdg, dt, &
+          U(:,:,itime) , V(:,:,itime) , T(:,:,itime) , &
+          PP , piln(:,:,itime) , zm, zi, &
+          nm, ni, rhoi, kvtt, Q(:,:,:), dse, &
+          effgw_rdg_beta, effgw_rdg_beta_max, &
+          effgw_rdg_resid, use_gw_rdg_resid, &
+          hwdth, clngt, gbxar, &
+          mxdis, angll, anixy, &
+          isovar, isowgt, &
+          rdg_beta_cd_llb, trpd_leewv_rdg_beta, &
+          !++jtb  ptend defined in massively hacked physics_types
+          ptend, flx_heat) 
+  end if
 
-#endif
+
+  
+  call gw_movmtn_calc( &
+       ncol, lchnk, dt, pref_edge, &
+       U(:,:,itime) , V(:,:,itime) , T(:,:,itime) , &
+       ZETA(:,:,itime) , &
+       PP , piln(:,:,itime) , zm, zi, &
+       nm, ni, rhoi, kvtt, Q(:,:,:), dse, &
+       effgw_movmtn_pbl, &
+       !++jtb  ptend defined in massively hacked physics_types
+       ptend, flx_heat) 
 
   
 end program gw_driver
