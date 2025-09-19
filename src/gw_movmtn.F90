@@ -158,6 +158,13 @@ subroutine gw_movmtn_src(ncol,lchnk, band, desc, u, v, &
   q0 = 0.0_r8
   tau0 = 0.0_r8
 
+  write(*,*) " Debugging gw_movmtn.F90 "
+  write(*,*) " use_gw_movmtn_pbl" , use_gw_movmtn_pbl
+  write(*,*) " movmtn_source    " , movmtn_source
+  write(*,*) " min max vort     " ,  minval( vorticity ) , maxval( vorticity )
+
+
+  
   source_type=movmtn_source
   if ( source_type==1 ) then
      !----------------------------------------------------------------------
@@ -415,6 +422,12 @@ subroutine gw_movmtn_src(ncol,lchnk, band, desc, u, v, &
   ! End loop over all columns.
   !-----------------------------------------------------------------------
 
+
+  write(*,*) " range topi       " , minval( topi ) , maxval(topi )
+  write(*,*) " range xpwp_src   " , minval( xpwp_src ) , maxval(xpwp_src )
+  write(*,*) " range tau        " , minval( tau )  , maxval(tau )
+
+  
   ! Output the source level.
   src_level = topi
   tend_level = topi

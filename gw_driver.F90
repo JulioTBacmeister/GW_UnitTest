@@ -225,6 +225,7 @@ program gw_driver
   call physics_ptend_init(ptend, ncol , 'OGWD',.TRUE.,.TRUE.,.TRUE., lqptend )
 
   band_oro = GWBand(0, gw_dc, fcrit2, wavelength_mid)
+  band_movmtn = GWBand(0, gw_dc, fcrit2, wavelength_mid)
 
   call set_band_rdg(band_oro)
   call set_vramp_rdg()
@@ -240,7 +241,8 @@ program gw_driver
   write(20) ncol,pver
   write(20) zm
   write(20) zi
-
+  write(20) use_gw_rdg_beta, use_gw_movmtn_pbl
+  
   lchnk=1
 
  

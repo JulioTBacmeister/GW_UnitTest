@@ -131,10 +131,8 @@ subroutine gw_movmtn_calc( &
    real(r8) :: dttke(ncol,pver)
 
    ! Wave stress in zonal/meridional direction
-   real(r8) :: taurx(ncol,pver+1)
-   real(r8) :: taurx0(ncol,pver+1)
-   real(r8) :: taury(ncol,pver+1)
-   real(r8) :: taury0(ncol,pver+1)
+   real(r8) :: taummx(ncol,pver+1)
+   real(r8) :: taummy(ncol,pver+1)
    ! Provisional absolute wave stress from gw_drag_prof
    real(r8) :: tau_diag(ncol,pver+1)
 
@@ -186,11 +184,11 @@ subroutine gw_movmtn_calc( &
 
    
    write(*,*) " ooooohhh  ... in gw_movtmn_calc"
-   return
+   ! return
    
    ! initialize accumulated momentum fluxes and tendencies
-   taurx = 0._r8
-   taury = 0._r8
+   taummx = 0._r8
+   taummy = 0._r8
    tau_diag = -9999._r8
 
    upwp_clubb_gw = 0.
@@ -211,6 +209,13 @@ subroutine gw_movmtn_calc( &
    ! and application of wave-drag force. I believe correct setting
    ! for c is c=0, since it is incorporated in ubm and (xv,yv)
    !--------------------------------------------------------------
+   write(*,*) " Now back in gw_movmtn_calc  topi       " 
+   write(*,*) " range src_level    " , minval( src_level ) , maxval( src_level )
+   write(*,*) " range tend_level   " , minval( tend_level ) , maxval( tend_level )
+   write(*,*) " range phase_speeds " , minval( phase_speeds ) , maxval( phase_speeds )
+   write(*,*) " range tau          " , minval( tau )  , maxval(tau )
+   write(*,*) " band_movmtn%effkwv " , band_movmtn%effkwv
+
 
 #if 0
    call outfld('SRC_LEVEL_MOVMTN', real(src_level,r8), ncol, lchnk)
@@ -220,6 +225,7 @@ subroutine gw_movmtn_calc( &
 #endif
    
    effgw = effgw_movmtn_pbl
+   write(*,*) " range effgw      " , minval( effgw )  , maxval( effgw )
    call gw_drag_prof(ncol, band_movmtn, p, src_level, tend_level, dt, &
         t, vramp,    &
         piln, rhoi,       nm,   ni, ubm,  ubi,  xv,    yv,   &
@@ -251,17 +257,20 @@ subroutine gw_movmtn_calc( &
    end do
 
    do k = 1, pver+1
-      taurx0(:,k) =  tau(:,0,k)*xv
-      taury0(:,k) =  tau(:,0,k)*yv
-      taurx(:,k)  =  taurx(:,k) + taurx0(:,k)
-      taury(:,k)  =  taury(:,k) + taury0(:,k)
+      taummx(:,k) =  tau(:,0,k)*xv
+      taummy(:,k) =  tau(:,0,k)*yv
    end do
 
+   !write(20) ubm
+   write(20) ubm
+   write(20) tau(:,0,:)
 
    ! Calculate energy change for output to CAM's energy checker.
    call energy_change(dt, p, u, v, ptend%u(:ncol,:), &
           ptend%v(:ncol,:), ptend%s(:ncol,:), de)
    flx_heat(:ncol) = de
+
+   write(*,*) " wheeeewww   ... survived gw_movtmn_calc"
 
 
    deallocate(tau, gwut, phase_speeds)
