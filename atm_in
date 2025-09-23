@@ -11,7 +11,7 @@
 ! This ncdata contains 'snapshot' of inputs to GW code, e.g., 'UEGW' = state%u in gw_drag.F90.
 ! Also contains snapshots of various outputs of ridge scheme. All instantaneous.
 ! ncdata		= '/glade/derecho/scratch/juliob/archive/ndg_Rdg04_c6455g3/atm/hist/ndg_Rdg04_c6455g3.cam.h2i.2014-01-15-00000.nc'
- ncdata		= '/glade/derecho/scratch/juliob/archive/ndg_x01_ne30pg3_fmt_c64109/atm/hist/ndg_x01_ne30pg3_fmt_c64109.cam.h2i.2004-06-15-00000.nc'
+ ncdata		= '/glade/derecho/scratch/juliob/archive/ndg_x02_ne30pg3_fmt_c64109/atm/hist/ndg_x02_ne30pg3_fmt_c64109.cam.h2i.2004-06-15-00000.nc'
  scale_dry_air_mass		=   98288.0D0 
  use_topo_file		=  .true.  
  ncdata_type = 'camsnap'
