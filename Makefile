@@ -17,6 +17,7 @@ SRCS = \
     share/shr_file_mod.F90 \
     share/shr_nl_mod.F90 \
     utils/physconst.F90 \
+    utils/sphere_ops.F90 \
     utils/ncread_mod.F90 \
     utils/units.F90 \
     utils/namelist_utils.F90 \

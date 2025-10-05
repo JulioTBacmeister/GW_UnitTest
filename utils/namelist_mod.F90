@@ -12,6 +12,7 @@ implicit none
 
 ! === cam_initfiles_nl ===
 character(len=256) :: bnd_topo, ncdata, gw_drag_file, gw_drag_file_mm, ncdata_type
+character(len=256) :: calculation_type
 real(8) :: scale_dry_air_mass
 
 ! === gw_drag_nl ===
@@ -64,7 +65,7 @@ public :: bnd_topo, ncdata, scale_dry_air_mass, use_topo_file,ncdata_type, &
      shallow_scheme, srf_flux_avg, use_gw_convect_dp, use_gw_convect_sh, &
      use_gw_front, use_gw_front_igw, use_gw_movmtn_pbl, use_gw_oro, &
      use_hemco, use_hetfrz_classnuc, use_simple_phys, use_subcol_microp, &
-     waccmx_opt
+     waccmx_opt, calculation_type
 
 
 
@@ -88,7 +89,11 @@ subroutine genl_readnl(nlfile ) !, bnd_topo, ncdata )
   logical :: use_topo_file
   real(r8) ::  scale_dry_air_mass
 
-  namelist /cam_initfiles_nl/ bnd_topo, ncdata, scale_dry_air_mass, use_topo_file, ncdata_type
+  namelist /top_ctl_nl/ calculation_type
+
+  namelist /cam_initfiles_nl_camsnap/ bnd_topo, ncdata, scale_dry_air_mass, use_topo_file, ncdata_type
+  namelist /cam_initfiles_nl_ERA5/ bnd_topo, ncdata, scale_dry_air_mass, use_topo_file, ncdata_type
+  namelist /cam_initfiles_nl_xy/ bnd_topo, ncdata, scale_dry_air_mass, use_topo_file, ncdata_type
 
   namelist /gw_drag_nl/ alpha_gw_movmtn, effgw_beres_dp, effgw_cm, effgw_movmtn_pbl, &
      effgw_rdg_beta, effgw_rdg_beta_max, effgw_rdg_resid, front_gaussian_width, &
@@ -114,13 +119,47 @@ subroutine genl_readnl(nlfile ) !, bnd_topo, ncdata )
 
   unitn = getunit()
   open( unitn, file=trim(nlfile), status='old' )
-  call find_group_name(unitn, 'cam_initfiles_nl', status=ierr)
+
+  
+  call find_group_name(unitn, 'top_ctl_nl', status=ierr)
   if (ierr == 0) then
-     read(unitn, cam_initfiles_nl, iostat=ierr)
+     read(unitn, top_ctl_nl, iostat=ierr)
      if (ierr /= 0) then
-        call endrun(' ERROR reading namelist cam_initfiles')
+        call endrun(' ERROR reading namelist top level control')
+     else
+        write(*,*) "Read this calc type:", calculation_type
      end if
   end if
+
+  if ( trim(calculation_type) == 'camsnap') then
+     call find_group_name(unitn, 'cam_initfiles_nl_camsnap', status=ierr)
+     if (ierr == 0) then
+        read(unitn, cam_initfiles_nl_camsnap, iostat=ierr)
+        if (ierr /= 0) then
+           call endrun(' ERROR reading namelist cam_initfiles')
+        end if
+     end if
+  else if ( trim(calculation_type) == 'ERA5') then
+     call find_group_name(unitn, 'cam_initfiles_nl_ERA5', status=ierr)
+     if (ierr == 0) then
+        read(unitn, cam_initfiles_nl_ERA5, iostat=ierr)
+        if (ierr /= 0) then
+           call endrun(' ERROR reading namelist cam_initfiles')
+        end if
+     end if
+  else if ( trim(calculation_type) == 'xy') then
+     call find_group_name(unitn, 'cam_initfiles_nl_xy', status=ierr)
+     if (ierr == 0) then
+        read(unitn, cam_initfiles_nl_xy, iostat=ierr)
+        if (ierr /= 0) then
+           call endrun(' ERROR reading namelist cam_initfiles')
+        end if
+     end if
+  else
+     STOP "NO vaid caculation type given"
+  end if
+
+     
   call find_group_name(unitn, 'gw_drag_nl', status=ierr)
   if (ierr == 0) then
      read(unitn, gw_drag_nl, iostat=ierr)

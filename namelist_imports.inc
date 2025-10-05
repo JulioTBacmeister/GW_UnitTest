@@ -3,6 +3,9 @@
   !   and then some, ... a lot more and then some
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   use namelist_mod, only: genl_readnl
+  !
+  ! --- top_level_control
+  use namelist_mod, only: calculation_type
   ! --- cam_initfiles
   use namelist_mod, only: bnd_topo, ncdata, scale_dry_air_mass, use_topo_file, ncdata_type
   ! --- gw_drag

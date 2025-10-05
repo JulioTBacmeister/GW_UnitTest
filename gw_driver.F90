@@ -44,7 +44,7 @@ program gw_driver
 
   integer ncid,status, dimid,varid  ! for netCDF data file
 
-  integer :: ncol, nrdgs, pver, ntim, itime
+  integer :: ncol, nrdgs, pver, ntim, itime, nx, ny
 
   ! Ridge parameters
   real(r8)  , allocatable :: mxdis(:,:), angll(:,:), aniso(:,:), anixy(:,:), hwdth(:,:), clngt(:,:)
@@ -89,7 +89,7 @@ program gw_driver
   real(r8) :: fcrit2 = 1.0   ! critical froude number squared
 
   logical   , allocatable :: lqptend(:)
-  logical :: trpd_leewave
+  logical :: trpd_leewave,llatlon
   integer :: lchnk, n_rdg
 
   nlfile='atm_in'
@@ -100,6 +100,7 @@ program gw_driver
   call gw_rdg_readnl( nlfile )
   call genl_readnl( nlfile ) !, bnd_topo, ncdata )
 
+  write(*,*) "calculation_type :",calculation_type
   write(*,*) "ncdata :",ncdata
   write(*,*) "ncdata_type :",ncdata_type
   write(*,*) "bnd_topo :",bnd_topo
@@ -112,9 +113,16 @@ program gw_driver
   write(*,*) " use_gw_movmtn_pbl: ",use_gw_movmtn_pbl
   write(*,*) " use_gw_rdg_beta: ",use_gw_rdg_beta
   
-
+  if ( trim(ncdata_type) == 'XY_DATA') then
+     llatlon=.TRUE.
+     call ncread_topo_latlon( bnd_topo , mxdis, angll, aniso, anixy, hwdth, clngt, gbxar, isovar, isowgt, sgh  )
+  else
+     llatlon=.FALSE.
+     call ncread_topo( bnd_topo , mxdis, angll, aniso, anixy, hwdth, clngt, gbxar, isovar, isowgt, sgh )
+  end if
   
-  call ncread_topo( bnd_topo , mxdis, angll, aniso, anixy, hwdth, clngt, gbxar, isovar, isowgt, sgh )
+  
+  !!call ncread_topo( bnd_topo , mxdis, angll, aniso, anixy, hwdth, clngt, gbxar, isovar, isowgt, sgh, llatlon=llatlon )
 
 
   itime=1
@@ -178,6 +186,64 @@ program gw_driver
      allocate( ZETA(ncol,pver,ntim)  )
      ZETA = 0._r8
 
+  else if ( trim(ncdata_type) == 'XY_DATA') then
+     write(*,*) "XY (regirdded) data"
+     call ncread_xy_data( ncdata , ncol, pver , ntim, &
+          hyai , hybi , hyam , hybm , lon , lat , &
+          PS, U , V , T, Q, ZETA )
+
+     pcols = ncol ! does this actaully go back to ppgrid? Yes.
+     pver_in_ppgrid = pver
+
+     call make_pressures( ncol, pver, ntim, hyai, hybi, hyam, hybm, PS, pint, pmid )
+
+     write(*,*) "Made ","pint   ",minval(pint), maxval(pint), shape(pint)
+     write(*,*) "Made ","pmid   ",minval(pmid), maxval(pmid), shape(pmid)
+
+     ! Will need these also
+     allocate( piln(ncol,pver+1,ntim), pmln(ncol,pver,ntim) )
+     piln = log( pint )
+     pmln = log( pmid )
+     
+     PP = Coords1D(pint(:ncol,:,itime))
+     write(*,*) "PP%ifc "
+     write(*,*) minval( PP%ifc ),maxval( PP%ifc ), shape(PP%ifc)
+
+
+     allocate( pref_edge(pver+1)  )
+     pref_edge(:) = 100000. * ( hyai(:) + hybi(:) )
+
+     call leovy_alpha( pver, pref_edge, alpha )
+     write(*,*) "Made ","alpha   ",minval(alpha), maxval(alpha), shape(alpha)
+
+     call gw_common_init(pver,&
+          tau_0_ubc, ktop, gravit, rair, alpha, & 
+          gw_prndl, gw_qbo_hdepth_scaling, & 
+          errstring)
+     
+
+     allocate( rhoi(ncol,pver+1) , ni(ncol, pver+1), nm(ncol, pver)  )
+     ! Profiles of background state variables
+     call gw_prof(ncol, PP, cpair, T(:,:,itime), rhoi, nm, ni)
+
+     write(*,*) "NEED GOEPHT"
+     allocate( zm(ncol,pver) , zi(ncol,pver+1), rair3D(ncol,pver), zvir3D(ncol,pver) )
+     rair3D(:,:) = rair
+     zvir3D(:,:) = zvir
+     call geopotential_t( ncol , pver ,                   &
+       piln(:,:,itime)   , pmln(:,:,itime)   , &
+       pint(:,:,itime)   , pmid(:,:,itime)   , PP%del   , PP%rdel  , &
+       T(:,:,itime) , Q(:,:,itime)  , rair3D   , gravit , zvir3D   ,   &
+       zi     , zm     )
+
+     write(*,*)  "Made ","ZI   ",minval(zi), maxval(zi), shape(zi)
+
+     !-----------------------------
+     ! Need to figure ZETA for ERA5
+     ! Set dummy var=0 for now
+     !------------------------------
+     ! allocate( ZETA(ncol,pver,ntim)  )
+     ! ZETA = 0._r8
   else if ( trim(ncdata_type) == 'camsnap') then
      write(*,*) "Wahhooo"
      call ncread_camsnap( ncdata , ncol, pver , ntim, &

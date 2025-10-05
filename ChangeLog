@@ -1,2 +1,14 @@
 2025-09-02:
-Reran nudging experiments with tag~cam6_4_109. Created new cam snapshots. This Unit test is still bit-for-bit with full model. Modified atm_in. Added subdir for cam_files and placed copy of latest nugding run user_nl_cam. Added this file.
+Reran nudging experiments with tag~cam6_4_109. Created new cam snapshots. This Unit test is still bit-for-bit with full model.
+      Modified atm_in.
+      Added subdir for cam_files and placed copy of latest nugding run user_nl_cam.
+      Added this file.
+
+2025-10-05:
+This Unit test is still bit-for-bit with full model(cam6_4_109), including new movmtn calculation.
+     Added gw_movmtn_calc.F90 to reproduce moving mountain scheme.
+     Added code to run from XY meterological data - currently regrdded 1/8 degree fields on fv1x1.
+     Also added code to calculate vorticity from XY U and V (utils/sphere_ops.F90).
+     Modified atm_in, cleaned up namelist. Using 'top_ctl_nl' with 'calculation_type'.
+
+Might tag this.

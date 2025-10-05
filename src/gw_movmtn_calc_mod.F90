@@ -261,8 +261,8 @@ subroutine gw_movmtn_calc( &
       taummy(:,k) =  tau(:,0,k)*yv
    end do
 
-   !write(20) ubm
    write(20) ubm
+   write(20) vort4gw
    write(20) tau(:,0,:)
 
    ! Calculate energy change for output to CAM's energy checker.

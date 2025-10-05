@@ -28,3 +28,5 @@ Test harness for GW codes
 4) At some point a guide to the provenance of each file will be provided.
 
 5) Added ChangeLog 9/2/2025. Still bit-for-bit with cam6_4_109.
+
+6) Major add-ons 10/5/2025. See ChangeLog.
