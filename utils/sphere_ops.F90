@@ -101,8 +101,8 @@ contains
     coslat = cos(rlat)
 
     ! North/South shifted cos(lat): j+1 and j-1 (cyclic for simplicity)
-    coslat_jn = cshift(coslat, shift = -1)   ! j+1
-    coslat_js = cshift(coslat, shift =  1)   ! j-1
+    coslat_jn = cshift(coslat, shift = +1)   ! j+1
+    coslat_js = cshift(coslat, shift = -1)   ! j-1
 
     ! Build 2D spreads for broadcasting-like ops
     allocate(coslat_2d(ny, nx))
@@ -122,9 +122,13 @@ contains
       ! Periodic in longitude: use cyclic shifts (like np.roll)
       ! d(fy)/dx ~ (fy(i+1) - fy(i-1)) / dlon
       ! the “x” direction is longitude → second dimension
-      curlz = (  ( cshift(fy, shift=-1, dim=2) - cshift(fy, shift=+1, dim=2) ) / dlon  &
-               - ( spread(coslat_jn, dim=2, ncopies=nx) * cshift(fx, shift=-1, dim=1)  &
-                 - spread(coslat_js, dim=2, ncopies=nx) * cshift(fx, shift=+1, dim=1) ) / dlat ) &
+      !curlz = (  ( cshift(fy, shift=-1, dim=2) - cshift(fy, shift=+1, dim=2) ) / dlon  &
+      !         - ( spread(coslat_jn, dim=2, ncopies=nx) * cshift(fx, shift=-1, dim=1)  &
+      !           - spread(coslat_js, dim=2, ncopies=nx) * cshift(fx, shift=+1, dim=1) ) / dlat ) &
+      !        / ( Re * coslat_2d )
+      curlz = (  ( cshift(fy, shift=+1, dim=2) - cshift(fy, shift=-1, dim=2) ) / dlon  &
+               - ( spread(coslat_jn, dim=2, ncopies=nx) * cshift(fx, shift=+1, dim=1)  &
+                 - spread(coslat_js, dim=2, ncopies=nx) * cshift(fx, shift=-1, dim=1) ) / dlat ) &
               / ( Re * coslat_2d )
 
     else

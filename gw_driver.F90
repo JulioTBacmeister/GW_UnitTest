@@ -305,8 +305,14 @@ program gw_driver
   open(unit=20, file='GW.dat', form='unformatted', access='stream', status='replace', action='write')
 
   write(20) ncol,pver
+  write(20) lat
+  write(20) lon
+  write(20) sgh
   write(20) zm
   write(20) zi
+  write(20) U(:,:,itime)
+  write(20) V(:,:,itime)
+  
   write(20) use_gw_rdg_beta, use_gw_movmtn_pbl
   
   lchnk=1
