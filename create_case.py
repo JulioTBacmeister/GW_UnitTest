@@ -7,13 +7,18 @@ import glob
 import argparse
 import yaml
 
+
+# args.clean_case is True/False
+
+
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Generate topo cases.")
     #parser.add_argument("--smoothing_scale", type=int, help="Smoothing scale")
-    parser.add_argument("--output_dir", type=str, default="./cases", help="Path to mother of casedirs ")
+    parser.add_argument("--output-dir", type=str, default="./cases", dest="output_dir", help="Path to mother of casedirs ")
     parser.add_argument("--casename", type=str, default="exp00", help="casename ")
-    parser.add_argument("--config", type=str, default="create_topo.yaml", help="Path to YAML configuration file (default: create_topo.yaml)")
-    parser.add_argument("--clean_case", action="store_true", help="Delete existing case directory if it exists")
+    parser.add_argument("--config", type=str, default="create_case.yaml", help="Path to YAML configuration file (default: create_case.yaml)")
+    parser.add_argument("--clean-case", action="store_true", dest="clean_case", help="Delete existing case directory if it exists")
+    parser.add_argument("--run", action="store_true", dest="run_case", help="If set runs case, if not just builds")
     return parser.parse_args()
 
 def load_config(config_path):
@@ -25,37 +30,6 @@ def clean_case_directory(case_dir):
         print(f"Cleaning existing case directory: {case_dir}")
         shutil.rmtree(case_dir)
 
-
-def create_command(odir=None, casename=None ):
-    """
-    Creates a command for subprocess.run, in this list form:
- 
-    command = [
-        "./gw_driver.x",
-        f"--output_dir={odir}",
-        f"--casename={casename}",
-         ]
-    """
-    #----------------------------------------------------
-    # Some of these 'optional' arguments are not really
-    # optional - ogrid, cstopo, scrip and smoothing_scale.
-    # Sorry.
-    #-----------------------------------------------------
-    command = [  "./cube_to_target" ]
-    #------------------------------------------------------------
-    # We are to rely on Python's 'truthy' vs 'falsy' idea below,
-    # to decide whether an input is 'provided'. If this doesn't 
-    # work can always go to 'if var is not None:'
-    #------------------------------------------------------------
-    if odir: 
-        command.append(f"--output_dir={odir}")
-    else:
-        raise ValueError("output directory is required but was not provided.")
-
-    print("created command line", flush=True)
-    print( command, flush=True )
-    
-    return command
 
 def main():
 
@@ -73,6 +47,7 @@ def main():
     odir = args.output_dir or config.get("output_dir")
     casename = args.casename or config.get("casename")
     clean_case = args.clean_case if args.clean_case else config.get("clean_case", False)
+    run_case = args.run_case if args.run_case else config.get("run_case", False)
 
     case_dir = os.path.join(odir, casename )
 
@@ -112,46 +87,12 @@ def main():
     #print(result.stderr)
     print("Return code:", result.returncode)
 
-    if (result.returncode == 0):
+    if ( (result.returncode == 0) and (run_case==True) ):
         command=f"pwd; ./gw_driver.x"
         result = subprocess.run(command, shell=True, executable="/bin/tcsh", capture_output=True, text=True)
         print(result.stdout)
     else:
         print(result.stderr)
     
-    """
-    #------------------------------------------------------------------------------------
-    # Get information about destination grid 'ogrid' 
-    #------------------------------------------------------------------------------------
-    grid_info = gridInfo( ogrid )
-    scrip = grid_info['scrip']
-    scrip_gll = grid_info['scrip_gll']
-    yfac = grid_info['yfac']
-    
-    #------------------------------------------------------------------------------------
-    # Specify cubed-sphere 'intermediate' topography. Currently, code is configured 
-    # to work with a 3000x3000x6 grid, which corresponds to a grid size of around 3km.
-    # Clearly, this is a problem at k-scale resolutions.
-    #------------------------------------------------------------------------------------
-    cstopo = "/glade/work/juliob/Topo/CubeData/gmted2010_modis_bedmachine-ncube3000-220518.nc"
-
-    cog = f"Co{int(smoothing_scale):03d}"
-    smtopo = f"topo_smooth_gmted2010_bedmachine_nc3000_{cog}.nc"
-
-    print("Here you are")
-    print(f"Smoothing scale: {cog}")
-    print(f"Smooth topo file: {smtopo}")
-
-    # Create command line that runs cube_to_target
-    command = create_command(ogrid=ogrid, 
-                             cstopo=cstopo, 
-                             smoothing_scale=smoothing_scale, 
-                             scrip=scrip, 
-                             scrip_gll=scrip_gll, 
-                             yfac=yfac, 
-                             development_diags=True )
-        
-    subprocess.run(command, check=True)
-    """
 if __name__ == "__main__":
     main()

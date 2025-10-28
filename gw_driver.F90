@@ -90,7 +90,7 @@ program gw_driver
 
   logical   , allocatable :: lqptend(:)
   logical :: trpd_leewave,llatlon
-  integer :: lchnk, n_rdg
+  integer :: lchnk, n_rdg, i,j,k,n
 
   nlfile='atm_in'
   !ncdata_type = 'ERA5_SE_IC'
@@ -254,6 +254,7 @@ program gw_driver
      pcols = ncol ! does this actaully go back to ppgrid? Yes.
      pver_in_ppgrid = pver
 
+     allocate( pmid(ncol,pver,ntim)  )
      allocate( zm(ncol,pver) , zi(ncol,pver+1) )
      allocate( rhoi(ncol,pver+1) , ni(ncol, pver+1), nm(ncol, pver)  )
 
@@ -267,6 +268,11 @@ program gw_driver
      ni = ni_(:,:,itime)
      rhoi = rhoi_(:,:,itime)
 
+     do n=1,ntim
+        do k=1,pver
+           pmid(:,k,n) =  0.5 * ( pint(:,k+1,n) +  pint(:,k,n) )
+        end do
+     end do
 
      allocate( pref_edge(pver+1)  )
      pref_edge(:) = 100000. * ( hyai(:) + hybi(:) )
@@ -304,12 +310,15 @@ program gw_driver
   ! Write multiple records
   open(unit=20, file='GW.dat', form='unformatted', access='stream', status='replace', action='write')
 
+  ! First write out some basic state stuff
   write(20) ncol,pver
   write(20) lat
   write(20) lon
   write(20) sgh
   write(20) zm
   write(20) zi
+  write(20) pmid(:,:,itime) 
+  write(20) pint(:,:,itime)   
   write(20) U(:,:,itime)
   write(20) V(:,:,itime)
   
