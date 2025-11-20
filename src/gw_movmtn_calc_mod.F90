@@ -264,6 +264,8 @@ subroutine gw_movmtn_calc( &
    write(20) ubm
    write(20) vort4gw
    write(20) tau(:,0,:)
+   write(20) utgw
+   write(20) vtgw
 
    ! Calculate energy change for output to CAM's energy checker.
    call energy_change(dt, p, u, v, ptend%u(:ncol,:), &

@@ -287,6 +287,8 @@ subroutine gw_rdg_calc( &
          write(20) ubm
          write(20) tau(:,0,:)
          write(20) tau_diag
+         write(20) utrdg
+         write(20) vtrdg
       end if
 #else
       if (nn == 1) then
