@@ -414,7 +414,10 @@ subroutine gw_movmtn_src(ncol,lchnk, band, desc, u, v, &
 
         end if ! heating depth above min and not at the pole
      else
-        tau(i,0,topi(i):pver+1 ) = xpwp_src(i) ! 0.1_r8/10000._r8
+        !tau(i,0,topi(i):pver+1 ) = xpwp_src(i) ! 0.1_r8/10000._r8
+        !  ---- This is what is actually needed by gw_drag_prof.
+        !  ---- Probably need to think about safety bounds for topi.
+        tau(i,0,topi(i)+1 ) = xpwp_src(i) 
      endif
 
   enddo

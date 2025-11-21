@@ -36,6 +36,7 @@ subroutine gw_movmtn_calc( &
    use coords_1d,  only: Coords1D
    use gw_movmtn,  only: gw_movmtn_src
    use gw_common,  only: gw_drag_prof, energy_change
+   use gw_common,  only: calc_taucd, momentum_flux, momentum_fixer
    use namelist_mod, only: alpha_gw_movmtn, movmtn_plaunch, movmtn_psteer, movmtn_source 
    use namelist_mod, only: gw_apply_tndmax
 
@@ -135,6 +136,11 @@ subroutine gw_movmtn_calc( &
    real(r8) :: taummy(ncol,pver+1)
    ! Provisional absolute wave stress from gw_drag_prof
    real(r8) :: tau_diag(ncol,pver+1)
+   
+   ! Reynolds stress for waves propagating in each cardinal direction.
+   real(r8) :: taucd(ncol,pver+1,4)
+   ! Momentum fluxes used by fixer.
+   real(r8) :: um_flux(ncol), vm_flux(ncol)
 
    ! Energy change used by fixer.
    real(r8) :: de(ncol)
@@ -203,6 +209,11 @@ subroutine gw_movmtn_calc( &
         zm, alpha_gw_movmtn, movmtn_source, movmtn_ksteer, movmtn_klaunch, src_level, tend_level, &
         tau, ubm, ubi, xv, yv, &
         phase_speeds, hdepth)
+
+   ! Project stress into directional components.
+   taucd = calc_taucd(ncol, band_movmtn%ngwv, tend_level, tau, phase_speeds, xv, yv, ubi)
+
+ 
    !-------------------------------------------------------------
    ! gw_movmtn_src returns wave-relative wind profiles ubm,ubi
    ! and unit vector components describing direction of wavevector
@@ -216,7 +227,8 @@ subroutine gw_movmtn_calc( &
    write(*,*) " range tau          " , minval( tau )  , maxval(tau )
    write(*,*) " band_movmtn%effkwv " , band_movmtn%effkwv
 
-
+   write(20) tau(:,0,:)
+ 
 #if 0
    call outfld('SRC_LEVEL_MOVMTN', real(src_level,r8), ncol, lchnk)
    call outfld('TND_LEVEL_MOVMTN', real(tend_level,r8), ncol, lchnk)
@@ -231,10 +243,10 @@ subroutine gw_movmtn_calc( &
         piln, rhoi,       nm,   ni, ubm,  ubi,  xv,    yv,   &
         effgw,   phase_speeds,       kvtt, q,  dse,  tau,  utgw,  vtgw, &
         ttgw, qtgw, egwdffi,  gwut, dttdf, dttke,            &
-        lapply_effgw_in=gw_apply_tndmax )
+        lapply_effgw_in=gw_apply_tndmax , tau_diag=tau_diag )
 
    ! Project stress into directional components.
-   !! taucd = calc_taucd(ncol, band_movmtn%ngwv, tend_level, tau, phase_speeds, xv, yv, ubi)
+   taucd = calc_taucd(ncol, band_movmtn%ngwv, tend_level, tau, phase_speeds, xv, yv, ubi)
 
    !  add the diffusion coefficients
    do k = 1, pver+1
@@ -255,6 +267,15 @@ subroutine gw_movmtn_calc( &
          ptend%q(:ncol,k,m) = ptend%q(:ncol,k,m) + qtgw(:,k,m)
       end do
    end do
+   
+   ! Find momentum flux, and use it to fix the wind tendencies below
+   ! the gravity wave region.
+   write(20) utgw
+   write(20) vtgw   
+   call momentum_flux(tend_level, taucd, um_flux, vm_flux)
+   write(20) um_flux
+   write(20) vm_flux
+   call momentum_fixer(tend_level, p, um_flux, vm_flux, utgw, vtgw)
 
    do k = 1, pver+1
       taummx(:,k) =  tau(:,0,k)*xv
@@ -264,6 +285,7 @@ subroutine gw_movmtn_calc( &
    write(20) ubm
    write(20) vort4gw
    write(20) tau(:,0,:)
+   write(20) tau_diag
    write(20) utgw
    write(20) vtgw
 
