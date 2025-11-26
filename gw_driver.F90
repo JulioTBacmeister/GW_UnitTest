@@ -6,6 +6,7 @@ program gw_driver
   use gw_rdg
   use gw_common, only: gw_prof, gw_drag_prof, gw_common_init, GWband
   use ncread_mod
+  use nc_flexout_mod
   use physconst, only: cpair, rair, gravit, zvir
   use coords_1d,  only: Coords1D
   use utils_mod, only: make_pressures, leovy_alpha !, make_geopht
@@ -307,6 +308,12 @@ program gw_driver
   call set_vramp_movmtn()
   call report_from_within_movmtn()
 
+  call ncfile_init_col('poon.nc', ncol, pver)
+  call ncfile_put_col2d_notime('lat', lat, 'deg', 'latitude' )
+  call ncfile_put_col2d_notime('lon', lon, 'deg', 'longitude' )
+  call ncfile_put_col3d('ZM' , zm, itime, 'm', 'height at midlayer' )
+  !call ncfile_close()
+  
   ! Write multiple records
   open(unit=20, file='GW.dat', form='unformatted', access='stream', status='replace', action='write')
 
@@ -373,6 +380,9 @@ program gw_driver
        effgw_movmtn_pbl, &
        !++jtb  ptend defined in massively hacked physics_types
        ptend, flx_heat) 
+
+
+  call ncfile_close()
 
   
 end program gw_driver

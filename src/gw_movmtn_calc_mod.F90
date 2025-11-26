@@ -8,6 +8,7 @@ use physics_types,  only: physics_ptend
 use ppgrid, only: pcnst, pcols
 use cam_abortutils, only: endrun
 use gw_movmtn,  only: MovMtnSourceDesc
+use nc_flexout_mod
 
 implicit none
 private
@@ -75,7 +76,7 @@ subroutine gw_movmtn_calc( &
    ! Moving mountain settings and table.
    type(MovMtnSourceDesc) :: movmtn_desc
 
-   integer :: k, m, nn, istat
+   integer :: k, m, nn, istat, itime
 
    real(r8), allocatable :: tau(:,:,:)  ! wave Reynolds stress
    ! gravity wave wind tendency for each wave
@@ -281,6 +282,9 @@ subroutine gw_movmtn_calc( &
       taummx(:,k) =  tau(:,0,k)*xv
       taummy(:,k) =  tau(:,0,k)*yv
    end do
+   
+   itime=1
+   call ncfile_put_col3d('UBM' , ubm, itime, 'ms-1', 'on wave wind at midlayer' )
 
    write(20) ubm
    write(20) vort4gw

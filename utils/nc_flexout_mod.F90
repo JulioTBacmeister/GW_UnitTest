@@ -1,0 +1,308 @@
+module nc_flexout_mod
+   use netcdf
+   use shr_kind_mod, only: r8 => shr_kind_r8
+
+   implicit none
+   private
+
+   integer, save :: ncid        = -1
+   integer, save :: dimid_col   = -1
+   integer, save :: dimid_x     = -1
+   integer, save :: dimid_y     = -1
+   integer, save :: dimid_z     = -1
+   integer, save :: dimid_ze    = -1
+   integer, save :: dimid_time  = -1
+   integer, save :: ncol_save   = 0
+   integer, save :: nx_save     = 0
+   integer, save :: ny_save     = 0
+   integer, save :: nz_save     = 0
+   integer, save :: nze_save    = 0
+
+
+   public :: ncfile_init
+   public :: ncfile_init_col
+   public :: ncfile_put_3d
+   public :: ncfile_put_col2d_notime
+   public :: ncfile_put_col2d
+   public :: ncfile_put_col3d
+   public :: ncfile_close
+   
+contains
+
+   !----------------------------
+   subroutine check_nc(ierr, where)
+      integer, intent(in) :: ierr
+      character(len=*), intent(in) :: where
+      if (ierr /= nf90_noerr) then
+         write(*,*) 'NetCDF error in ', trim(where), ': ', trim(nf90_strerror(ierr))
+         stop 1
+      end if
+   end subroutine check_nc
+
+   !----------------------------
+   subroutine ncfile_init(filename, nx, ny, nz)
+      character(len=*), intent(in) :: filename
+      integer,          intent(in) :: nx, ny, nz
+      integer :: ierr
+
+      ! Create file (NETCDF4 so redef is cheap; use NF90_CLOBBER|NF90_NETCDF4 if desired)
+      ierr = nf90_create(filename, NF90_NETCDF4, ncid)
+      call check_nc(ierr, 'nf90_create')
+
+      ! Define dims; time is unlimited
+      ierr = nf90_def_dim(ncid, 'lon',   nx,          dimid_x);     call check_nc(ierr, 'def_dim lon')
+      ierr = nf90_def_dim(ncid, 'lat',   ny,          dimid_y);     call check_nc(ierr, 'def_dim lat')
+      ierr = nf90_def_dim(ncid, 'level', nz,          dimid_z);     call check_nc(ierr, 'def_dim level')
+      ierr = nf90_def_dim(ncid, 'time',  NF90_UNLIMITED, dimid_time); call check_nc(ierr, 'def_dim time')
+
+      ! (Optional) define coordinate variables here, attributes, etc.
+
+      ierr = nf90_enddef(ncid)
+      call check_nc(ierr, 'nf90_enddef(init)')
+
+      nx_save = nx
+      ny_save = ny
+      nz_save = nz
+   end subroutine ncfile_init
+
+   !----------------------------
+   subroutine ncfile_init_col(filename, ncol, nz)
+      character(len=*), intent(in) :: filename
+      integer,          intent(in) :: ncol, nz
+      integer :: ierr
+
+      ! Create file (NETCDF4 so redef is cheap; use NF90_CLOBBER|NF90_NETCDF4 if desired)
+      ierr = nf90_create(filename, NF90_NETCDF4, ncid)
+      call check_nc(ierr, 'nf90_create')
+
+      ! Define dims; time is unlimited
+      ierr = nf90_def_dim(ncid, 'col',   ncol,        dimid_col);   call check_nc(ierr, 'def_dim col')
+      ierr = nf90_def_dim(ncid, 'level', nz,          dimid_z);     call check_nc(ierr, 'def_dim level')
+      ierr = nf90_def_dim(ncid, 'ilevel', nz+1,       dimid_ze);     call check_nc(ierr, 'def_dim ilevel')
+      ierr = nf90_def_dim(ncid, 'time',  NF90_UNLIMITED, dimid_time); call check_nc(ierr, 'def_dim time')
+
+      ! (Optional) define coordinate variables here, attributes, etc.
+
+      ierr = nf90_enddef(ncid)
+      call check_nc(ierr, 'nf90_enddef(init)')
+
+      ncol_save = ncol
+      nz_save = nz
+    end subroutine ncfile_init_col
+
+   !----------------------------
+   ! write a 3D field with dims (lon,lat,level,time)
+   subroutine ncfile_put_3d(varname, field, itime, units, long_name)
+      character(len=*), intent(in) :: varname
+      real,             intent(in) :: field(:,:,:)
+      integer,          intent(in) :: itime  ! 1-based time index
+      character(len=*), intent(in), optional :: units, long_name
+
+      integer :: ierr, varid
+      integer :: dimids(4)
+      integer :: start(4), count(4)
+
+      ! Sanity check on sizes (optional but helpful)
+      if (size(field,1) /= ncol_save .or. &
+          size(field,2) /= nz_save) then
+         write(*,*) 'Size mismatch in ncfile_put_3d for ', trim(varname)
+         stop 1
+      end if
+
+      ! Try to find variable
+      ierr = nf90_inq_varid(ncid, trim(varname), varid)
+
+      if (ierr /= nf90_noerr) then
+         ! Need to (re)enter define mode and create it
+         ierr = nf90_redef(ncid); call check_nc(ierr, 'nf90_redef')
+
+         dimids = (/ dimid_x, dimid_y, dimid_z, dimid_time /)
+         ierr   = nf90_def_var(ncid, trim(varname), NF90_REAL, dimids, varid)
+         call check_nc(ierr, 'def_var '//trim(varname))
+
+         if (present(units)) then
+            ierr = nf90_put_att(ncid, varid, 'units', units)
+            call check_nc(ierr, 'put_att units '//trim(varname))
+         end if
+
+         if (present(long_name)) then
+            ierr = nf90_put_att(ncid, varid, 'long_name', long_name)
+            call check_nc(ierr, 'put_att long_name '//trim(varname))
+         end if
+
+         ierr = nf90_enddef(ncid)
+         call check_nc(ierr, 'nf90_enddef(new var)')
+      end if
+
+      ! Now write this time slice
+      start = (/ 1, 1, 1, itime /)
+      count = (/ nx_save, ny_save, nz_save, 1 /)
+
+      ierr = nf90_put_var(ncid, varid, field, start=start, count=count)
+      call check_nc(ierr, 'put_var '//trim(varname))
+   end subroutine ncfile_put_3d
+
+   !----------------------------
+   ! write a physically 2D field with dims (col), i.e., no time dim ...
+   subroutine ncfile_put_col2d_notime(varname, field, units, long_name)
+      character(len=*), intent(in) :: varname
+      real(r8),         intent(in) :: field(:)
+      character(len=*), intent(in), optional :: units, long_name
+
+      integer :: ierr, varid
+      integer :: dimids(1)
+      integer :: start(1), count(1)
+
+      ! Sanity check on sizes (optional but helpful)
+      if (size(field,1) /= ncol_save ) then
+         write(*,*) 'Size mismatch in ncfile_put_col2d for ', trim(varname)
+         stop 1
+      end if
+
+      ! Try to find variable
+      ierr = nf90_inq_varid(ncid, trim(varname), varid)
+
+      if (ierr /= nf90_noerr) then
+         ! Need to (re)enter define mode and create it
+         ierr = nf90_redef(ncid); call check_nc(ierr, 'nf90_redef')
+
+         dimids = (/ dimid_col /)
+         ierr   = nf90_def_var(ncid, trim(varname), NF90_REAL, dimids, varid)
+         call check_nc(ierr, 'def_var '//trim(varname))
+
+         if (present(units)) then
+            ierr = nf90_put_att(ncid, varid, 'units', units)
+            call check_nc(ierr, 'put_att units '//trim(varname))
+         end if
+
+         if (present(long_name)) then
+            ierr = nf90_put_att(ncid, varid, 'long_name', long_name)
+            call check_nc(ierr, 'put_att long_name '//trim(varname))
+         end if
+
+         ierr = nf90_enddef(ncid)
+         call check_nc(ierr, 'nf90_enddef(new var)')
+      end if
+
+      ! Now write this time slice
+      start = (/ 1 /)
+      count = (/ ncol_save /)
+
+      ierr = nf90_put_var(ncid, varid, field, start=start, count=count)
+      call check_nc(ierr, 'put_var '//trim(varname))
+    end subroutine ncfile_put_col2d_notime
+
+   !----------------------------
+   ! write a physically 2D field with dims (col,time)
+   subroutine ncfile_put_col2d(varname, field, itime, units, long_name)
+      character(len=*), intent(in) :: varname
+      real(r8),         intent(in) :: field(:)
+      integer,          intent(in) :: itime  ! 1-based time index
+      character(len=*), intent(in), optional :: units, long_name
+
+      integer :: ierr, varid
+      integer :: dimids(2)
+      integer :: start(2), count(2)
+
+      ! Sanity check on sizes (optional but helpful)
+      if (size(field,1) /= ncol_save ) then
+         write(*,*) 'Size mismatch in ncfile_put_col2d for ', trim(varname)
+         stop 1
+      end if
+
+      ! Try to find variable
+      ierr = nf90_inq_varid(ncid, trim(varname), varid)
+
+      if (ierr /= nf90_noerr) then
+         ! Need to (re)enter define mode and create it
+         ierr = nf90_redef(ncid); call check_nc(ierr, 'nf90_redef')
+
+         dimids = (/ dimid_col, dimid_time /)
+         ierr   = nf90_def_var(ncid, trim(varname), NF90_REAL, dimids, varid)
+         call check_nc(ierr, 'def_var '//trim(varname))
+
+         if (present(units)) then
+            ierr = nf90_put_att(ncid, varid, 'units', units)
+            call check_nc(ierr, 'put_att units '//trim(varname))
+         end if
+
+         if (present(long_name)) then
+            ierr = nf90_put_att(ncid, varid, 'long_name', long_name)
+            call check_nc(ierr, 'put_att long_name '//trim(varname))
+         end if
+
+         ierr = nf90_enddef(ncid)
+         call check_nc(ierr, 'nf90_enddef(new var)')
+      end if
+
+      ! Now write this time slice
+      start = (/ 1, itime /)
+      count = (/ ncol_save, 1 /)
+
+      ierr = nf90_put_var(ncid, varid, field, start=start, count=count)
+      call check_nc(ierr, 'put_var '//trim(varname))
+    end subroutine ncfile_put_col2d
+
+   !----------------------------
+   ! write a physically 3D field with dims (col,level,time)
+   subroutine ncfile_put_col3d(varname, field, itime, units, long_name)
+      character(len=*), intent(in) :: varname
+      real(r8),         intent(in) :: field(:,:)
+      integer,          intent(in) :: itime  ! 1-based time index
+      character(len=*), intent(in), optional :: units, long_name
+
+      integer :: ierr, varid
+      integer :: dimids(3)
+      integer :: start(3), count(3)
+
+      ! Sanity check on sizes (optional but helpful)
+      if (size(field,1) /= ncol_save .or. &
+          size(field,2) /= nz_save) then
+         write(*,*) 'Size mismatch in ncfile_put_col3d for ', trim(varname)
+         stop 1
+      end if
+
+      ! Try to find variable
+      ierr = nf90_inq_varid(ncid, trim(varname), varid)
+
+      if (ierr /= nf90_noerr) then
+         ! Need to (re)enter define mode and create it
+         ierr = nf90_redef(ncid); call check_nc(ierr, 'nf90_redef')
+
+         dimids = (/ dimid_col, dimid_z, dimid_time /)
+         ierr   = nf90_def_var(ncid, trim(varname), NF90_REAL, dimids, varid)
+         call check_nc(ierr, 'def_var '//trim(varname))
+
+         if (present(units)) then
+            ierr = nf90_put_att(ncid, varid, 'units', units)
+            call check_nc(ierr, 'put_att units '//trim(varname))
+         end if
+
+         if (present(long_name)) then
+            ierr = nf90_put_att(ncid, varid, 'long_name', long_name)
+            call check_nc(ierr, 'put_att long_name '//trim(varname))
+         end if
+
+         ierr = nf90_enddef(ncid)
+         call check_nc(ierr, 'nf90_enddef(new var)')
+      end if
+
+      ! Now write this time slice
+      start = (/ 1, 1, itime /)
+      count = (/ ncol_save, nz_save, 1 /)
+
+      ierr = nf90_put_var(ncid, varid, field, start=start, count=count)
+      call check_nc(ierr, 'put_var '//trim(varname))
+    end subroutine ncfile_put_col3d
+
+   !----------------------------
+   subroutine ncfile_close()
+      integer :: ierr
+      if (ncid /= -1) then
+         ierr = nf90_close(ncid)
+         call check_nc(ierr, 'nf90_close')
+         ncid = -1
+      end if
+   end subroutine ncfile_close
+
+end module nc_flexout_mod
