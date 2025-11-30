@@ -12,3 +12,10 @@ This Unit test is still bit-for-bit with full model(cam6_4_109), including new m
      Modified atm_in, cleaned up namelist. Using 'top_ctl_nl' with 'calculation_type'.
 
 Might tag this.
+
+2025-11-30:
+This Unit test in "snapshot" mode is still at round-off equality with full model(cam6_4_109). Note here
+     that it was never actually bit-for-bit ... (my bad ..:( ).
+     Moving to netcdf output - added utils/nc_flexout_mod.F90
+     Keeping fortran writes until this is tagged (v2.1) and then will remove them. Also want to modify
+     controls.
