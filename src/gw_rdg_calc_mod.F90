@@ -7,6 +7,7 @@ use gw_common, only: pver , GWBand
 use physics_types,  only: physics_ptend
 use ppgrid, only: pcnst, pcols
 use cam_abortutils, only: endrun
+use nc_flexout_mod
 
 implicit none
 private
@@ -91,7 +92,7 @@ subroutine gw_rdg_calc( &
 
    !---------------------------Local storage-------------------------------
 
-   integer :: k, m, nn, istat
+   integer :: k, m, nn, istat, itime
 
    real(r8), allocatable :: tau(:,:,:)  ! wave Reynolds stress
    ! gravity wave wind tendency for each wave
@@ -188,6 +189,9 @@ subroutine gw_rdg_calc( &
    character(len=1) :: cn
    character(len=9) :: fname(4)
    !----------------------------------------------------------------------------
+
+   ! Dummy time
+   itime=1
    
    ! Allocate wavenumber fields.
    allocate(tau(ncol,band_oro%ngwv:band_oro%ngwv,pver+1),stat=istat)
@@ -226,6 +230,7 @@ subroutine gw_rdg_calc( &
 #ifdef UNITTEST
       if (nn == 1) then
          write(20) tau(:,0,:)
+         call ncfile_put_col3d('TAU_A_RDG',  tau(:,0,:) , itime, 'N m-2', 'stress profile after source' )
       end if
 #endif
 
@@ -239,6 +244,7 @@ subroutine gw_rdg_calc( &
 #ifdef UNITTEST
       if (nn == 1) then
          write(20) tau(:,0,:)
+         call ncfile_put_col3d('TAU_B_RDG',  tau(:,0,:) , itime, 'N m-2', 'stress profile after DSW' )
       end if
 #endif
       
@@ -289,6 +295,19 @@ subroutine gw_rdg_calc( &
          write(20) tau_diag
          write(20) utrdg
          write(20) vtrdg
+         !!!!!!!!!!!!!!!!!!!!!!!!!!!
+         call ncfile_put_col2d('BWV',  bwv , itime, 'm', 'bottom of wave layer' )
+         call ncfile_put_col2d('TLB',  tlb , itime, 'm', 'top of blocking layer' )
+         call ncfile_put_col2d('WBR',  wbr , itime, 'm', 'wave breaking height' )
+         call ncfile_put_col2d('UBMSRC_RDG',  ubmsrc , itime, 'm s-1', 'on-ridge wind source layer' )
+         call ncfile_put_col2d('NSRC_RDG',  nsrc , itime, 's-1', 'strat freq source layer' )
+         call ncfile_put_col2d('TAUORO',  tauoro , itime, 'N m-2', 'orog source flux' )
+         call ncfile_put_col3d('UBM_RDG', ubm , itime, 'm s-2', 'on-ridge wind' )
+         call ncfile_put_col2d('TAUDSW',  tauoro , itime, 'N m-2', 'DSW flux enhancement' )
+         call ncfile_put_col3d('TAU_RDG',  tau(:,0,:) , itime, 'N m-2', 'stress profile - rdg' )
+         call ncfile_put_col3d('TAU_DIAG_RDG',  tau_diag , itime, 'N m-2', 'pre-pixie stress profile - rdg' )
+         call ncfile_put_col3d('UTRDG', utrdg , itime, 'm s-2', 'x-wind tendency' )
+         call ncfile_put_col3d('VTRDG', utrdg , itime, 'm s-2', 'y-wind tendency' )
       end if
 #else
       if (nn == 1) then

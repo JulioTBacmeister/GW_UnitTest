@@ -152,6 +152,7 @@ subroutine gw_movmtn_calc( &
    character(len=1) :: cn
    character(len=9) :: fname(4)
    !----------------------------------------------------------------------------
+   itime = 1
    
    ! Allocate wavenumber fields.
    allocate(tau(ncol,band_movmtn%ngwv:band_movmtn%ngwv,pver+1),stat=istat)
@@ -228,6 +229,7 @@ subroutine gw_movmtn_calc( &
    write(*,*) " range tau          " , minval( tau )  , maxval(tau )
    write(*,*) " band_movmtn%effkwv " , band_movmtn%effkwv
 
+   call ncfile_put_col3d('TAU_SRC_MOVMVTN',  tau(:,0,:) , itime, 'N m-2', 'stress profile after source' )
    write(20) tau(:,0,:)
  
 #if 0
@@ -271,11 +273,7 @@ subroutine gw_movmtn_calc( &
    
    ! Find momentum flux, and use it to fix the wind tendencies below
    ! the gravity wave region.
-   write(20) utgw
-   write(20) vtgw   
    call momentum_flux(tend_level, taucd, um_flux, vm_flux)
-   write(20) um_flux
-   write(20) vm_flux
    call momentum_fixer(tend_level, p, um_flux, vm_flux, utgw, vtgw)
 
    do k = 1, pver+1
@@ -283,8 +281,10 @@ subroutine gw_movmtn_calc( &
       taummy(:,k) =  tau(:,0,k)*yv
    end do
    
-   itime=1
    call ncfile_put_col3d('UBM' , ubm, itime, 'ms-1', 'on wave wind at midlayer' )
+   call ncfile_put_col3d('ZETA', vort4gw , itime, 's-1', 'rel vorticity' )
+   call ncfile_put_col3d('TAU_MOVMTN',  tau(:,0,:) , itime, 'N m-2', 'stress profile - movmtn' )
+   call ncfile_put_col3d('TAU_DIAG_MOVMTN',  tau_diag , itime, 'N m-2', 'pre-pixie stress profile - movmtn'  )
 
    write(20) ubm
    write(20) vort4gw

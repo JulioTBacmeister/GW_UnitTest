@@ -53,7 +53,7 @@ program gw_driver
 
   ! Meteorolgical data  and dims
   real(r8) , allocatable :: hyai(:), hybi(:), hyam(:), hybm(:)
-  real(r8) , allocatable :: lon(:), lat(:)
+  real(r8) , allocatable :: lon(:), lat(:), lon_R(:), lat_R(:)
   real(r8) , allocatable :: U(:,:,:), V(:,:,:), T(:,:,:), Q(:,:,:), ZETA(:,:,:), PS(:,:)
   real(r8) , allocatable :: nm_(:,:,:), ni_(:,:,:), zm_(:,:,:), zi_(:,:,:), rhoi_(:,:,:)
   real(r8) , allocatable :: pint_(:,:,:), piln_(:,:,:)
@@ -71,7 +71,7 @@ program gw_driver
   real(r8) , allocatable :: alpha(:), pref_edge(:)
   real(r8) , allocatable :: kvtt(:,:),flx_heat(:)
 
-  real(r8) ::  prndl,dt
+  real(r8) ::  prndl,dt,time_val
   
   ! Horrible, pointless construct 
   type(Coords1D) :: PP               ! Pressure coordinates
@@ -127,7 +127,8 @@ program gw_driver
 
 
   itime=1
-
+  time_val=1._r8
+  
   if ( trim(ncdata_type) == 'ERA5_SE_IC') then
      write(*,*) "ERA5 IC data"
      call ncread_era5_se_ic( ncdata , ncol, pver , ntim, &
@@ -189,9 +190,9 @@ program gw_driver
 
   else if ( trim(ncdata_type) == 'XY_DATA') then
      write(*,*) "XY (regirdded) data"
-     call ncread_xy_data( ncdata , ncol, pver , ntim, &
+     call ncread_xy_data( ncdata , ncol, ny, nx, pver , ntim, &
           hyai , hybi , hyam , hybm , lon , lat , &
-          PS, U , V , T, Q, ZETA )
+          PS, U , V , T, Q, ZETA, lat_R, lon_R )
 
      pcols = ncol ! does this actaully go back to ppgrid? Yes.
      pver_in_ppgrid = pver
@@ -308,10 +309,24 @@ program gw_driver
   call set_vramp_movmtn()
   call report_from_within_movmtn()
 
-  call ncfile_init_col('poon.nc', ncol, pver)
+  if ( trim(ncdata_type) == 'XY_DATA') then
+     write(*,*) " Adding nx ny to dims ",ny,nx
+     call ncfile_init_col('poon.nc', ncol, pver, time_val, ny, nx, lat_R, lon_R)
+  else
+     call ncfile_init_col('poon.nc', ncol, pver, time_val)
+  end if
+
+  call ncfile_set_globals(ncdata=ncdata, calculation_type=calculation_type )
+  
   call ncfile_put_col2d_notime('lat', lat, 'deg', 'latitude' )
   call ncfile_put_col2d_notime('lon', lon, 'deg', 'longitude' )
+  call ncfile_put_col2d_notime('SGH', sgh, 'm', 'topography std' )
   call ncfile_put_col3d('ZM' , zm, itime, 'm', 'height at midlayer' )
+  call ncfile_put_col3d('ZI' , zi, itime, 'm', 'height at intfcs' )
+  call ncfile_put_col3d('PMID' , pmid(:,:,itime), itime, 'Pa', 'pressure at midlayer' )
+  call ncfile_put_col3d('PINT' , pint(:,:,itime), itime, 'Pa', 'pressure at intfcs' )
+  call ncfile_put_col3d('U' , U(:,:,itime), itime, 'ms-1', 'zonal wind' )
+  call ncfile_put_col3d('V' , V(:,:,itime), itime, 'ms-1', 'meridional wind' )
   !call ncfile_close()
   
   ! Write multiple records

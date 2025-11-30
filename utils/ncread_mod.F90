@@ -184,28 +184,29 @@ subroutine ncread_topo_latlon(ncfile, mxdis, angll, aniso, anixy, hwdth, clngt, 
 end subroutine ncread_topo_latlon
 
 !====================================================================
-subroutine ncread_xy_data(ncfile , ncol, pver, ntim, &
+subroutine ncread_xy_data(ncfile , ncol, ny, nx, pver, ntim, &
      hyai , hybi , hyam , hybm , lon , lat , &
-     PS, U , V , T , Q , ZETA ) !! , Q )
+     PS, U , V , T , Q , ZETA, lat_R, lon_R ) !! , Q )
 
   use sphere_ops, only: sphere_curl2_xy
 
   character(len=*), intent(in) :: ncfile
   
-  integer, intent(out) :: ncol,pver,ntim
+  integer, intent(out) :: ncol,pver,ntim,ny,nx
   
   real(r8) , allocatable, intent(out) :: hyai(:), hybi(:), hyam(:), hybm(:)
   real(r8) , allocatable, intent(out) :: lon(:), lat(:)
   real(r8) , allocatable, intent(out) :: U(:,:,:), V(:,:,:), T(:,:,:), PS(:,:)
   real(r8) , allocatable, intent(out) :: Q(:,:,:), ZETA(:,:,:)
-  
+  real(r8) , allocatable, intent(out) :: lon_R(:), lat_R(:)
+
   !----- local variables --------------------------
-  real(r8) , allocatable :: lon_R(:), lat_R(:)
+  !real(r8) , allocatable :: lon_R(:), lat_R(:)
   real(r8) , allocatable :: lon_xy(:,:), lat_xy(:,:)
   real(r8) , allocatable :: U_R(:,:,:,:), V_R(:,:,:,:), T_R(:,:,:,:), PS_R(:,:,:)
   real(r8) , allocatable :: ZETA_tk(:,:)
 
-  integer :: i,j,k,icol,itim,nx,ny
+  integer :: i,j,k,icol,itim
 
   integer :: ncid,status, dimid,varid  ! for netCDF data file
   

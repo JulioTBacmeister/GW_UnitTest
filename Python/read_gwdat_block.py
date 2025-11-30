@@ -50,10 +50,6 @@ with open(f"{odir}/GW.dat", 'rb') as f:
 
     if (use_gw_movmtn_pbl==True):
         tau_src_movmtn = np.fromfile(f, dtype=np.float64, count=ncol * (nlev+1) ).reshape((ncol, nlev+1), order='F')
-        utgw_prefix_movmtn  = np.fromfile(f, dtype=np.float64, count=ncol * (nlev) ).reshape((ncol, nlev), order='F')
-        vtgw_prefix_movmtn  = np.fromfile(f, dtype=np.float64, count=ncol * (nlev) ).reshape((ncol, nlev), order='F')
-        um_flux = np.fromfile(f, dtype=np.float64, count=ncol  )              
-        vm_flux = np.fromfile(f, dtype=np.float64, count=ncol  )              
         ubm_movmtn  = np.fromfile(f, dtype=np.float64, count=ncol * (nlev) ).reshape((ncol, nlev), order='F')
         vort_movmtn = np.fromfile(f, dtype=np.float64, count=ncol * (nlev) ).reshape((ncol, nlev), order='F')
         tau_movmtn  = np.fromfile(f, dtype=np.float64, count=ncol * (nlev+1) ).reshape((ncol, nlev+1), order='F')
