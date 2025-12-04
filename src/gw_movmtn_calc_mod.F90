@@ -230,15 +230,7 @@ subroutine gw_movmtn_calc( &
    write(*,*) " band_movmtn%effkwv " , band_movmtn%effkwv
 
    call ncfile_put_col3d('TAU_SRC_MOVMVTN',  tau(:,0,:) , itime, 'N m-2', 'stress profile after source' )
-   write(20) tau(:,0,:)
- 
-#if 0
-   call outfld('SRC_LEVEL_MOVMTN', real(src_level,r8), ncol, lchnk)
-   call outfld('TND_LEVEL_MOVMTN', real(tend_level,r8), ncol, lchnk)
-   call outfld('UBI_MOVMTN', ubi, ncol, lchnk)
-   call outfld('UBM_MOVMTN', ubm, ncol, lchnk)
-#endif
-   
+    
    effgw = effgw_movmtn_pbl
    write(*,*) " range effgw      " , minval( effgw )  , maxval( effgw )
    call gw_drag_prof(ncol, band_movmtn, p, src_level, tend_level, dt, &
@@ -285,13 +277,6 @@ subroutine gw_movmtn_calc( &
    call ncfile_put_col3d('ZETA', vort4gw , itime, 's-1', 'rel vorticity' )
    call ncfile_put_col3d('TAU_MOVMTN',  tau(:,0,:) , itime, 'N m-2', 'stress profile - movmtn' )
    call ncfile_put_col3d('TAU_DIAG_MOVMTN',  tau_diag , itime, 'N m-2', 'pre-pixie stress profile - movmtn'  )
-
-   write(20) ubm
-   write(20) vort4gw
-   write(20) tau(:,0,:)
-   write(20) tau_diag
-   write(20) utgw
-   write(20) vtgw
 
    ! Calculate energy change for output to CAM's energy checker.
    call energy_change(dt, p, u, v, ptend%u(:ncol,:), &

@@ -67,6 +67,29 @@ def update_namelist_value(filename, key, new_value):
     with open(filename, 'w') as f:
         f.writelines(out_lines)
 
+def read_namelist_value(filename, key):
+    """
+    Updates a Fortran namelist assignment like:
+        key = 'old'
+    and replaces it with:
+        key = 'new_value'
+    
+    Preserves spacing and comments.
+    """
+    print( filename )
+    
+    pattern = re.compile(rf"^(\s*{key}\s*=\s*)'([^']*)'(.*)$")
+    out_lines = []
+
+    with open(filename, 'r') as f:
+        for line in f:
+            m = pattern.match(line)
+            if m:
+                # reconstruct the line, preserving whitespace & trailing text
+                prefix, current_val, suffix = m.groups()
+
+    return current_val
+
 def main():
 
     # Parse command-line arguments
@@ -100,7 +123,7 @@ def main():
     os.makedirs(os.path.join(case_dir, "utils"), exist_ok=True)
 
     # Copy files
-    for file in ["Makefile", "gw_driver.F90","namelist_imports.inc", "atm_in"]:
+    for file in ["Makefile", "gw_driver.F90","namelist_imports.inc", "atm_in", "drv_in"]:
         shutil.copy(file, case_dir)
     shutil.copy(__file__, os.path.join(case_dir, "create_case.py"))
     
@@ -131,10 +154,13 @@ def main():
     #print(result.stderr)
     print("Return code:", result.returncode)
     
-    #Modify namelist atm_in
-    #update_namelist_value( f"{case_dir}/atm_in", "calculation_type", runtype)
-    update_namelist_value( f"atm_in", "calculation_type", runtype)
+    #Modify namelist drv_in
+    update_namelist_value( f"drv_in", "calculation_type", runtype)
+    update_namelist_value( f"drv_in", "casename", casename)
 
+    ncout_root = read_namelist_value('drv_in', 'ncout_root' ) 
+    os.makedirs(os.path.join(ncout_root, casename ), exist_ok=True)
+    
     if ( (result.returncode == 0) and (run_case==True) ):
         command=f"pwd; ./gw_driver.x"
         result = subprocess.run(command, shell=True, executable="/bin/tcsh", capture_output=True, text=True)

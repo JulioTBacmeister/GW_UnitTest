@@ -13,6 +13,7 @@ private
 
 ! Public interface
 public :: make_pressures
+public :: make_nc_filename
 public :: leovy_alpha
 
 !==========================================================================
@@ -127,5 +128,28 @@ subroutine leovy_alpha( pver, pref_edge, alpha )
   call lininterp (alpha0  ,palph, nalph , alpha  , pref_edge , pver+1)
 
 end subroutine leovy_alpha
+
+!-----------------------------------------------
+function make_nc_filename(ncdata_root, year, month, day, secday) result(ncfile)
+   implicit none
+   !---- Inputs ----
+   character(len=*), intent(in) :: ncdata_root   ! root path & prefix
+   integer,          intent(in) :: year, month, day, secday
+
+   !---- Output ----
+   character(len=:), allocatable :: ncfile
+
+   !---- Locals ----
+   character(len=32) :: datestr
+   character(len=:), allocatable :: tmp
+
+   ! Build the date/time tag: 2004-06-15-00000
+   write(datestr, '(I4.4,"-",I2.2,"-",I2.2,"-",I5.5)') year, month, day, secday
+
+   ! Compose the full filename
+   tmp = trim(ncdata_root)//'.'//trim(datestr)//'.nc'
+   ncfile = tmp
+end function make_nc_filename
+!-----------------------------------------------
 
 end module utils_mod

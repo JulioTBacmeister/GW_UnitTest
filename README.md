@@ -2,15 +2,18 @@
 Test harness for GW codes
 
 1) Fortran infrastructure from cam (more or less tag=cam6_4_055) to allow gravity wave codes to be run in
-   Unit test mode. Code currently reproduces results from full model bit-for-bit when forced with 'snapshot'
-   of physics state right before calls to GW code. These fields are found ncdata file specified in
-   atm_in namelist file.
+   Unit test mode. Code currently reproduces results from full model to within round-off
+   when forced with 'snapshot' of physics state right before calls to GW code. These fields are found
+   ncdata file specified in drv_in namelist file.
 
    A Makefile is present. To build the test, run 'module load gcc' (once per login), and then simply type
 
      	    make gw_driver.x
 
-   This builds the executable. Executable produces a fortran unformatted binary 'GW.dat'.
+   This builds the executable. Executable produces netcdf output files that can read by notebooks in
+   'Python' subdirectory - see ./Python/AnaGenl.ipynb .
+
+   Infrastructure in Python has also been added to create cases - see create_case.py in root dir .
 
 2) Names of cam files have not been changed, although many have been dramatically hacked to simplify build.
    Original gravity wave source code which forms the basis for this Unit test are in subdir:

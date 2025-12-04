@@ -229,7 +229,6 @@ subroutine gw_rdg_calc( &
 
 #ifdef UNITTEST
       if (nn == 1) then
-         write(20) tau(:,0,:)
          call ncfile_put_col3d('TAU_A_RDG',  tau(:,0,:) , itime, 'N m-2', 'stress profile after source' )
       end if
 #endif
@@ -243,7 +242,6 @@ subroutine gw_rdg_calc( &
 
 #ifdef UNITTEST
       if (nn == 1) then
-         write(20) tau(:,0,:)
          call ncfile_put_col3d('TAU_B_RDG',  tau(:,0,:) , itime, 'N m-2', 'stress profile after DSW' )
       end if
 #endif
@@ -283,19 +281,6 @@ subroutine gw_rdg_calc( &
 
 #ifdef UNITTEST
       if (nn == 1) then
-         write(20) bwv
-         write(20) tlb
-         write(20) wbr
-         write(20) ubmsrc
-         write(20) nsrc
-         write(20) tauoro
-         write(20) taudsw
-         write(20) ubm
-         write(20) tau(:,0,:)
-         write(20) tau_diag
-         write(20) utrdg
-         write(20) vtrdg
-         !!!!!!!!!!!!!!!!!!!!!!!!!!!
          call ncfile_put_col2d('BWV',  bwv , itime, 'm', 'bottom of wave layer' )
          call ncfile_put_col2d('TLB',  tlb , itime, 'm', 'top of blocking layer' )
          call ncfile_put_col2d('WBR',  wbr , itime, 'm', 'wave breaking height' )

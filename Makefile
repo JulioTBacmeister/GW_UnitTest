@@ -16,6 +16,7 @@ SRCS = \
     share/shr_string_mod.F90 \
     share/shr_file_mod.F90 \
     share/shr_nl_mod.F90 \
+    utils/dt_bump.F90 \
     utils/physconst.F90 \
     utils/sphere_ops.F90 \
     utils/nc_flexout_mod.F90 \

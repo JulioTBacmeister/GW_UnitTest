@@ -2,12 +2,15 @@
   !   Huge messy import of all likely namelist params
   !   and then some, ... a lot more and then some
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  use namelist_mod, only: genl_readnl
+  use namelist_mod, only: atm_readnl,drv_readnl
   !
   ! --- top_level_control
-  use namelist_mod, only: calculation_type
+  use namelist_mod, only: calculation_type, start_year, start_month, start_day, &
+      start_hour, nsteps, dt_step, ncout_root, casename
+  
+
   ! --- cam_initfiles
-  use namelist_mod, only: bnd_topo, ncdata, scale_dry_air_mass, use_topo_file, ncdata_type
+  use namelist_mod, only: bnd_topo, ncdata_root, scale_dry_air_mass, use_topo_file, ncdata_type
   ! --- gw_drag
   use namelist_mod, only: alpha_gw_movmtn, effgw_beres_dp, effgw_cm, effgw_movmtn_pbl, &
      effgw_rdg_beta, effgw_rdg_beta_max, effgw_rdg_resid, front_gaussian_width, &
@@ -29,3 +32,5 @@
      use_gw_front, use_gw_front_igw, use_gw_movmtn_pbl, use_gw_oro, &
      use_hemco, use_hetfrz_classnuc, use_simple_phys, use_subcol_microp, &
      waccmx_opt
+
+   use namelist_mod, only: ncdata

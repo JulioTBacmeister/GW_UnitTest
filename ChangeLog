@@ -19,3 +19,10 @@ This Unit test in "snapshot" mode is still at round-off equality with full model
      Moving to netcdf output - added utils/nc_flexout_mod.F90
      Keeping fortran writes until this is tagged (v2.1) and then will remove them. Also want to modify
      controls.
+     
+2025-12-04:
+Fortran writes have been removed. Namelists have been split into atm_in and drv_in, with drv_in controlling
+     type, length, dates of run. Unit test in "snapshot" mode is still at round-off equality with
+     full model(cam6_4_109*). *Note here that gw_movmtn... has actually been made momentum conserving
+     and source specification has been changed to reflect actual level needed by gw_drag_prof. This is
+     checked into CAM yet. PR to be opened soon.
