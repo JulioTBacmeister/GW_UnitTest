@@ -26,3 +26,5 @@ Fortran writes have been removed. Namelists have been split into atm_in and drv_
      full model(cam6_4_109*). *Note here that gw_movmtn... has actually been made momentum conserving
      and source specification has been changed to reflect actual level needed by gw_drag_prof. This is
      checked into CAM yet. PR to be opened soon.
+
+This will be tagged as v3.0
