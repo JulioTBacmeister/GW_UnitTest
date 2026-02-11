@@ -14,6 +14,7 @@ program gw_driver
   use ppgrid, only: pcnst,pcols, pver_in_ppgrid=>pver
   use geopotential, only: geopotential_t
   use dt_bump, only: bump_ymdh
+  use sphere_ops, only: sphere_fronto_wrapper
 
   ! set_band_rdg required to get band construct into
   use gw_rdg_calc_mod, only : gw_rdg_calc, set_band_rdg
@@ -23,6 +24,10 @@ program gw_driver
   use gw_movmtn_calc_mod, only : gw_movmtn_calc, set_band_movmtn
   use gw_movmtn_calc_mod, only : set_vramp_movmtn => set_vramp
   use gw_movmtn_calc_mod, only : report_from_within_movmtn => report_from_within
+  ! set_band_movmtn required to get band construct into
+  use gw_front_calc_mod, only : gw_front_calc, set_band_front
+  use gw_front_calc_mod, only : set_vramp_front => set_vramp
+  use gw_front_calc_mod, only : report_from_within_front => report_from_within
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !   Huge messy import of all likely namelist params
@@ -63,6 +68,7 @@ program gw_driver
   ! Additional fields that will be needed
   ! (Direct ... have dummy time dim)
   real(r8) , allocatable :: pint(:,:,:), pmid(:,:,:), piln(:,:,:), pmln(:,:,:)
+  real(r8) , allocatable :: TH(:,:,:), FRONTGF(:,:,:), FRONTGA(:,:,:)
 
   ! Additional fields
   ! (No dummy time dim)
@@ -81,8 +87,8 @@ program gw_driver
   ! ptend derived typ ...
   type(physics_ptend) :: ptend
 
-  ! A mid-scale "band" with only stationary waves (l = 0).
-  type(GWBand) :: band_oro , band_movmtn 
+  ! Gravity wave "bands".
+  type(GWBand) :: band_oro , band_movmtn , band_front
   ! Horzontal wavelengths for bands [m].
   real(r8), parameter :: wavelength_mid = 1.e5_r8
   real(r8), parameter :: wavelength_long = 1.e6_r8
@@ -257,7 +263,14 @@ program gw_driver
              T(:,:,itime) , Q(:,:,itime)  , rair3D   , gravit , zvir3D   ,   &
              zi     , zm     )
 
+        allocate( TH(ncol,pver,ntim) ,  FRONTGF(ncol,pver,ntim) ,  FRONTGA(ncol,pver,ntim)  )
+
         write(*,*)  "Made ","ZI   ",minval(zi), maxval(zi), shape(zi)
+
+        !TH(:,:,itime) = T(:,:,itime) * ( (100000._r8 / pmid)**(rair/cpair) )   ! + gravit * zm / cpair )
+        TH  = T * ( (100000._r8 / pmid)**(rair/cpair) )   ! + gravit * zm / cpair )
+
+        call sphere_fronto_wrapper( TH, U, V, lat_R, lon_R, FRONTGF, FRONTGA )
 
         !-----------------------------
         ! Need to figure ZETA for ERA5
@@ -321,6 +334,10 @@ program gw_driver
      band_oro = GWBand(0, gw_dc, fcrit2, wavelength_mid)
      band_movmtn = GWBand(0, gw_dc, fcrit2, wavelength_mid)
 
+
+     write(*,*) " PGWV for fronts ",pgwv
+     band_front = GWBand(pgwv, gw_dc, fcrit2, wavelength_mid)
+
      call set_band_rdg(band_oro)
      call set_vramp_rdg()
      call report_from_within_rdg()
@@ -328,6 +345,10 @@ program gw_driver
      call set_band_movmtn(band_movmtn)
      call set_vramp_movmtn()
      call report_from_within_movmtn()
+
+     call set_band_front(band_front)
+     call set_vramp_front()
+     call report_from_within_front()
 
      if ( trim(ncdata_type) == 'XY_DATA') then
         write(*,*) " Adding nx ny to dims ",ny,nx
@@ -338,15 +359,31 @@ program gw_driver
 
      call ncfile_set_globals(ncdata=ncdata, calculation_type=calculation_type )
 
+     call ncfile_put_col1d_notime('hyam', hyam, '1', 'hybrid midl a-coeff' )
+     call ncfile_put_col1d_notime('hybm', hybm, '1', 'hybrid midl b-coeff' )
+     call ncfile_put_col1d_notime('hyai', hyai, '1', 'hybrid intf a-coeff' )
+     call ncfile_put_col1d_notime('hybi', hybi, '1', 'hybrid intf b-coeff' )
      call ncfile_put_col2d_notime('lat', lat, 'deg', 'latitude' )
      call ncfile_put_col2d_notime('lon', lon, 'deg', 'longitude' )
      call ncfile_put_col2d_notime('SGH', sgh, 'm', 'topography std' )
+     call ncfile_put_col2d('PS' , PS(:,itime), itime, 'Pa', 'surface pressure' )
      call ncfile_put_col3d('ZM' , zm, itime, 'm', 'height at midlayer' )
      call ncfile_put_col3d('ZI' , zi, itime, 'm', 'height at intfcs' )
      call ncfile_put_col3d('PMID' , pmid(:,:,itime), itime, 'Pa', 'pressure at midlayer' )
      call ncfile_put_col3d('PINT' , pint(:,:,itime), itime, 'Pa', 'pressure at intfcs' )
      call ncfile_put_col3d('U' , U(:,:,itime), itime, 'ms-1', 'zonal wind' )
      call ncfile_put_col3d('V' , V(:,:,itime), itime, 'ms-1', 'meridional wind' )
+     call ncfile_put_col3d('T' , T(:,:,itime), itime, 'K', 'temperature' )
+
+     if ( allocated( TH ) ) then
+        call ncfile_put_col3d('TH' ,TH(:,:,itime), itime, 'K', 'potential temp' )
+     end if
+     if ( allocated( FRONTGF ) ) then
+        call ncfile_put_col3d('FRONTGF' , FRONTGF(:,:,itime), itime, 'quaqu', 'frontogenesis' )
+     end if
+     if ( allocated( FRONTGA ) ) then
+        call ncfile_put_col3d('FRONTGA' , FRONTGA(:,:,itime), itime, 'quaqu', 'frontogenesis' )
+     end if
 
      lchnk=1
 
@@ -399,6 +436,18 @@ program gw_driver
           ptend, flx_heat) 
 
 
+     call gw_front_calc( &
+          ncol, lchnk, dt, pref_edge, &
+          U(:,:,itime) , V(:,:,itime) , T(:,:,itime) , &
+          FRONTGF(:,:,itime) , &
+          PP , piln(:,:,itime) , zm, zi, &
+          nm, ni, rhoi, kvtt, Q(:,:,:), dse, &
+          effgw_cm, &
+          frontgfc, taubgnd, front_gaussian_width, &
+                                !++jtb  ptend defined in massively hacked physics_types
+          ptend, flx_heat) 
+     
+
      close( unit=20 )
      call ncfile_close()
      
@@ -406,27 +455,6 @@ program gw_driver
      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
      !  Need to deallocate !!!!                   !
      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-#if 0
-       ! Meteorolgical data  and dims
-  real(r8) , allocatable :: hyai(:), hybi(:), hyam(:), hybm(:)
-  real(r8) , allocatable :: lon(:), lat(:), lon_R(:), lat_R(:)
-  real(r8) , allocatable :: U(:,:,:), V(:,:,:), T(:,:,:), Q(:,:,:), ZETA(:,:,:), PS(:,:)
-  real(r8) , allocatable :: nm_(:,:,:), ni_(:,:,:), zm_(:,:,:), zi_(:,:,:), rhoi_(:,:,:)
-  real(r8) , allocatable :: pint_(:,:,:), piln_(:,:,:)
-
-  ! Additional fields that will be needed
-  ! (Direct ... have dummy time dim)
-  real(r8) , allocatable :: pint(:,:,:), pmid(:,:,:), piln(:,:,:), pmln(:,:,:)
-
-  ! Additional fields
-  ! (No dummy time dim)
-  real(r8) , allocatable :: rhoi(:,:), nm(:,:), ni(:,:), zm(:,:), zi(:,:), dse(:,:)
-  real(r8) , allocatable :: rair3D(:,:), zvir3D(:,:)
-
-  ! Other Additional fields
-  real(r8) , allocatable :: alpha(:), pref_edge(:)
-  real(r8) , allocatable :: kvtt(:,:),flx_heat(:)
-#endif
 
   call free_fields ()
   
@@ -458,10 +486,15 @@ subroutine free_fields( )
   if (allocated(U))          deallocate(U)
   if (allocated(V))          deallocate(V)
   if (allocated(T))          deallocate(T)
+  if (allocated(TH))         deallocate(TH)
   if (allocated(Q))          deallocate(Q)
   if (allocated(ZETA))       deallocate(ZETA)
   if (allocated(PS))         deallocate(PS)
 
+  if (allocated(FRONTGF))    deallocate(FRONTGF)
+  if (allocated(FRONTGA))    deallocate(FRONTGA)
+
+  
   if (allocated(nm_))        deallocate(nm_)
   if (allocated(ni_))        deallocate(ni_)
   if (allocated(zm_))        deallocate(zm_)

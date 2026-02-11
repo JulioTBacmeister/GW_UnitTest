@@ -5,6 +5,7 @@ module sphere_ops
   implicit none
   private
   public :: sphere_curl2_xy
+  public :: sphere_fronto_wrapper
 
   !!integer, parameter :: dp = selected_real_kind(15, 300)
 contains
@@ -169,4 +170,176 @@ contains
 
   end subroutine sphere_curl2
 
+  subroutine sphere_grad2( f, lat, lon, fx, fy )
+    real(r8), intent(in)  :: f(:,:)
+    real(r8), intent(in)  :: lat(:), lon(:)
+    real(r8), intent(out) :: fx(size(f,1), size(f,2))
+    real(r8), intent(out) :: fy(size(f,1), size(f,2))
+    integer :: ny, nx, i, j
+    real(r8), allocatable :: rlat(:), rlon(:), coslat(:)
+    real(r8) :: dlat, dlon, deg2rad
+    logical :: lwrap
+    
+    ny = size(lat)
+    nx = size(lon)
+
+    deg2rad = acos(-1.0_r8) / 180.0_r8
+
+    allocate(rlat(ny), rlon(nx), coslat(ny) )
+    rlat = deg2rad * lat
+    rlon = deg2rad * lon
+
+    ! Uniform-step assumption, matching your Python (uses [3]-[1])
+    if (ny >= 3) then
+      dlat = rlat(3) - rlat(1)
+    else
+      dlat = 0.0_r8
+    end if
+    if (nx >= 3) then
+      dlon = rlon(3) - rlon(1)
+    else
+      dlon = 0.0_r8
+    end if
+
+    coslat = cos(rlat)
+    
+    do j=1,ny
+       do i=2,nx-1
+          fx(i,j) = ( f(i+1,j) - f(i-1,j) ) /( Re * dlon * coslat(j) )
+       end do
+    end do
+    do j=1,ny
+       i=1
+       fx(i,j) = ( f(i+1,j) - f(nx,j) ) /( Re * dlon * coslat(j) )
+       i=nx
+       fx(i,j) = ( f(1,j) - f(i-1,j) ) /( Re * dlon * coslat(j) )
+    end do
+
+    do j=2,ny-1
+       do i=1,nx
+          fy(i,j) = ( f(i,j+1) - f(i,j-1) ) /( Re * dlat )
+       end do
+    end do
+    do i=1,nx
+       j=1
+       fy(i,j) = ( f(i,j+1) - 0._r8 ) /( Re * 0.5 * dlat )
+       j=ny
+       fy(i,j) = ( 0._r8  - f(i,j-1) ) /( Re * 0.5 * dlat )
+    end do
+
+    deallocate(rlat , rlon, coslat )
+    
+  end subroutine sphere_grad2
+  
+  subroutine sphere_fronto( th, u, v, lat, lon, frontgf, frontga )
+    real(r8), intent(in)  :: th(:,:,:), u(:,:,:), v(:,:,:)
+    real(r8), intent(in)  :: lat(:), lon(:)
+    real(r8), intent(out) :: frontgf(size(th,1), size(th,2), size(th,3))
+    real(r8), intent(out) :: frontga(size(th,1), size(th,2), size(th,3))
+
+    !--- local 
+    integer :: ny, nx, nz, i, j, k
+    real(r8), allocatable :: rlat(:), rlon(:), coslat(:), tanlat(:)
+    real(r8) :: dlat, dlon, deg2rad
+    logical  :: lwrap
+    real(r8) :: thx(size(th,1), size(th,2), size(th,3))
+    real(r8) :: ux(size(th,1), size(th,2), size(th,3))
+    real(r8) :: vx(size(th,1), size(th,2), size(th,3))
+    real(r8) :: thy(size(th,1), size(th,2), size(th,3))
+    real(r8) :: uy(size(th,1), size(th,2), size(th,3))
+    real(r8) :: vy(size(th,1), size(th,2), size(th,3))
+    real(r8) :: grx(size(th,1), size(th,2) )
+    real(r8) :: gry(size(th,1), size(th,2) )
+
+    nx = size(th,1)
+    ny = size(th,2)
+    nz = size(th,3)
+    
+
+    do k=1,nz
+       call sphere_grad2( th(:,:,k) , lat, lon, grx, gry )
+       thx(:,:,k)=grx
+       thy(:,:,k)=gry
+    end do
+    do k=1,nz
+       call sphere_grad2( u(:,:,k) , lat, lon, grx, gry )
+       ux(:,:,k)=grx
+       uy(:,:,k)=gry
+    end do
+    do k=1,nz
+       call sphere_grad2( v(:,:,k) , lat, lon, grx, gry )
+       vx(:,:,k)=grx
+       vy(:,:,k)=gry
+    end do
+
+    deg2rad = acos(-1.0_r8) / 180.0_r8
+    allocate(rlat(ny), rlon(nx), tanlat(ny), coslat(ny) )
+    rlat = deg2rad * lat
+    rlon = deg2rad * lon
+
+    tanlat=tan(rlat)
+
+    
+    do k=1,nz
+       do j=1,ny
+          frontgf(:,j,k) = -(thx(:,j,k) **2 *( ux(:,j,k) - v(:,j,k)*tanlat(j)/Re ) ) &
+          - (thy(:,j,k)**2 * vy(:,j,k)) &
+          -(thx(:,j,k)*thy(:,j,k) * &
+          ( vx(:,j,k) + uy(:,j,k) + u(:,j,k)*tanlat(j)/Re ) )
+
+       end do
+    end do
+    
+    frontga=frontgf
+    
+    deallocate(rlat, rlon, tanlat, coslat )
+
+    
+  end subroutine sphere_fronto
+
+  subroutine sphere_fronto_wrapper( th, u, v, lat, lon, frontgf, frontga )
+    real(r8), intent(in)  :: th(:,:,:), u(:,:,:), v(:,:,:)
+    real(r8), intent(in)  :: lat(:), lon(:)
+    real(r8), intent(out) :: frontgf(size(th,1), size(th,2), size(th,3))
+    real(r8), intent(out) :: frontga(size(th,1), size(th,2), size(th,3))
+
+    !----- local ---------
+
+    real(r8), allocatable  :: thR(:,:,:,:), uR(:,:,:,:), vR(:,:,:,:)
+    real(r8), allocatable  :: frontgfR(:,:,:,:), frontgaR(:,:,:,:)
+    integer :: nt,nz,ny,nx,ncol,i,j,k,n
+
+    nt   = size(th,3)
+    ncol = size(th,1)
+    nz   = size(th,2)
+    nx   = size(lon)
+    ny   = size(lat) 
+    
+
+    
+    allocate( thR(nx,ny,nz,nt), uR(nx,ny,nz,nt), vR(nx,ny,nz,nt) )
+    allocate( frontgfR(nx,ny,nz,nt), frontgaR(nx,ny,nz,nt)  )
+
+    
+    uR =reshape( u , [nx,ny,nz,nt] )
+    vR =reshape( v , [nx,ny,nz,nt] )
+    thR =reshape( th , [nx,ny,nz,nt] )
+
+    
+    write(*,*) "In frontogen ","TH      ",minval(TH),    maxval(TH),    shape(TH)
+
+    do n=1,nt
+       call sphere_fronto( thR(:,:,:,n), uR(:,:,:,n), vR(:,:,:,n), &
+            lat, lon, frontgfR(:,:,:,n), frontgaR(:,:,:,n) )
+    end do
+
+    frontgf =reshape( frontgfR , [ncol,nz,nt] )
+    frontga =reshape( frontgaR , [ncol,nz,nt] )
+    
+    deallocate( thR, uR, vR )
+    deallocate( frontgfR , frontgaR  )
+
+    
+  end subroutine sphere_fronto_wrapper
+  
 end module sphere_ops

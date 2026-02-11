@@ -38,6 +38,7 @@ subroutine gw_movmtn_calc( &
    use gw_movmtn,  only: gw_movmtn_src
    use gw_common,  only: gw_drag_prof, energy_change
    use gw_common,  only: calc_taucd, momentum_flux, momentum_fixer
+   use gw_common, only: west, east, south, north
    use namelist_mod, only: alpha_gw_movmtn, movmtn_plaunch, movmtn_psteer, movmtn_source 
    use namelist_mod, only: gw_apply_tndmax
 
@@ -277,6 +278,12 @@ subroutine gw_movmtn_calc( &
    call ncfile_put_col3d('ZETA', vort4gw , itime, 's-1', 'rel vorticity' )
    call ncfile_put_col3d('TAU_MOVMTN',  tau(:,0,:) , itime, 'N m-2', 'stress profile - movmtn' )
    call ncfile_put_col3d('TAU_DIAG_MOVMTN',  tau_diag , itime, 'N m-2', 'pre-pixie stress profile - movmtn'  )
+   ! Tau in each direction.
+   call ncfile_put_col3d('TAUE_MM', taucd(:,:,east)  , itime, 'N m-2', 'E stress profile - frontal' )
+   call ncfile_put_col3d('TAUW_MM', taucd(:,:,west)  , itime, 'N m-2', 'E stress profile - frontal' )
+   call ncfile_put_col3d('TAUN_MM', taucd(:,:,north)  , itime, 'N m-2', 'E stress profile - frontal' )
+   call ncfile_put_col3d('TAUS_MM', taucd(:,:,south)  , itime, 'N m-2', 'E stress profile - frontal' )
+
 
    ! Calculate energy change for output to CAM's energy checker.
    call energy_change(dt, p, u, v, ptend%u(:ncol,:), &

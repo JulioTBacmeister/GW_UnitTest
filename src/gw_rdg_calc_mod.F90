@@ -227,11 +227,9 @@ subroutine gw_rdg_calc( &
          ubmsrc, nsrc, rsrc, m2src, tlb, bwv, Fr1, Fr2, Frx, &
          tauoro, taudsw, hdspwv, hdspdw)
 
-#ifdef UNITTEST
       if (nn == 1) then
          call ncfile_put_col3d('TAU_A_RDG',  tau(:,0,:) , itime, 'N m-2', 'stress profile after source' )
       end if
-#endif
 
       call gw_rdg_break_trap(ncol, band_oro, &
          zi, nm, ni, ubm, ubi, rhoi, kwvrdg , bwv, tlb, wbr, &
@@ -240,11 +238,9 @@ subroutine gw_rdg_calc( &
          ldo_trapped_waves=trpd_leewv)
 
 
-#ifdef UNITTEST
       if (nn == 1) then
          call ncfile_put_col3d('TAU_B_RDG',  tau(:,0,:) , itime, 'N m-2', 'stress profile after DSW' )
       end if
-#endif
       
       call gw_drag_prof(ncol, band_oro, p, src_level, tend_level, dt, &
          t, vramp,    &
@@ -279,7 +275,6 @@ subroutine gw_rdg_calc( &
          taury(:,k)  =  taury(:,k) + taury0(:,k)
       end do
 
-#ifdef UNITTEST
       if (nn == 1) then
          call ncfile_put_col2d('BWV',  bwv , itime, 'm', 'bottom of wave layer' )
          call ncfile_put_col2d('TLB',  tlb , itime, 'm', 'top of blocking layer' )
@@ -294,49 +289,9 @@ subroutine gw_rdg_calc( &
          call ncfile_put_col3d('UTRDG', utrdg , itime, 'm s-2', 'x-wind tendency' )
          call ncfile_put_col3d('VTRDG', utrdg , itime, 'm s-2', 'y-wind tendency' )
       end if
-#else
-      if (nn == 1) then
-         call outfld('BWV_HT1', bwv,     ncol, lchnk)
-         call outfld('TLB_HT1', tlb,     ncol, lchnk)
-         call outfld('WBR_HT1', wbr,     ncol, lchnk)
-         call outfld('TAUDSW1', taudsw,  ncol, lchnk)
-         call outfld('TAUORO1', tauoro,  ncol, lchnk)
-         call outfld('UBMSRC1', ubmsrc,  ncol, lchnk)
-         call outfld('USRC1',   usrc,    ncol, lchnk)
-         call outfld('VSRC1',   vsrc,    ncol, lchnk)
-         call outfld('NSRC1'  , nsrc,    ncol, lchnk)
-         ! Froude numbers
-         call outfld('Fr1_DIAG' , Fr1,    ncol, lchnk)
-         call outfld('Fr2_DIAG' , Fr2,    ncol, lchnk)
-         call outfld('Frx_DIAG' , Frx,    ncol, lchnk)
-         ! Ridge quantities - don't change.  Written for convenience
-         call outfld('MXDIS1' , mxdis(:,nn) ,  ncol, lchnk)
-         call outfld('ANGLL1' , angll(:,nn) ,  ncol, lchnk)
-         call outfld('ANIXY1' , anixy(:,nn) ,  ncol, lchnk)
-         call outfld('HWDTH1' , hwdth(:,nn) ,  ncol, lchnk)
-         call outfld('CLNGT1' , clngt(:,nn) ,  ncol, lchnk)
-         call outfld('GBXAR1' , gbxar ,        ncol, lchnk)
-         call outfld('TAUM1_DIAG' , tau_diag ,  ncol, lchnk)
-         call outfld('TAU1RDG'//trim(type)//'M', tau(:,0,:),  ncol, lchnk)
-         call outfld('UBM1'//trim(type),         ubm,         ncol, lchnk)
-         call outfld('UBT1RDG'//trim(type),      gwut,        ncol, lchnk)
-      end if
-
-      if (nn <= 6) then
-         write(cn, '(i1)') nn
-         call outfld('TAU'//cn//'RDG'//trim(type)//'X', taurx0,  ncol, lchnk)
-         call outfld('TAU'//cn//'RDG'//trim(type)//'Y', taury0,  ncol, lchnk)
-         call outfld('UT'//cn//'RDG'//trim(type),       utgw,    ncol, lchnk)
-         call outfld('VT'//cn//'RDG'//trim(type),       vtgw,    ncol, lchnk)
-      end if
-#endif
       
    end do ! end of loop over multiple ridges
 
-#ifndef UNITTEST
-   call outfld('TAUARDG'//trim(type)//'X', taurx,  ncol, lchnk)
-   call outfld('TAUARDG'//trim(type)//'Y', taury,  ncol, lchnk)
-#endif
    
    !if (luse_gw_rdg_resid == .true.) then ! is this line a possible problem??
    if (luse_gw_rdg_resid .eqv. .true.) then ! gfortran wants this!
@@ -384,20 +339,6 @@ subroutine gw_rdg_calc( &
          taury(:,k)  =  taury(:,k) + taury0(:,k)
       end do
 
-#ifndef UNITTEST
-      call outfld('UTGWORO_RESID', utgw,  ncol, lchnk)
-      call outfld('VTGWORO_RESID', vtgw,  ncol, lchnk)
-
-      call outfld('TAUDIAG_RESID', tau_diag,  ncol, lchnk)
-      call outfld('TAUORO_RESID', tauoro ,  ncol, lchnk)
-      call outfld('TAURESID'//trim(type)//'M', tau(:,0,:),  ncol, lchnk)
-      call outfld('TAURESID'//trim(type)//'X', taurx,  ncol, lchnk)
-      call outfld('TAURESID'//trim(type)//'Y', taury,  ncol, lchnk)
-
-      call outfld('UBMRESID'//trim(type),      ubm,         ncol, lchnk)
-      call outfld('UBIRESID'//trim(type),      ubi,         ncol, lchnk)
-      call outfld('SRC_LEVEL_RESID'//trim(type),      1._r8*src_level ,         ncol, lchnk)
-#endif
       ! end of residual variance calc
    end if
 
@@ -421,13 +362,6 @@ subroutine gw_rdg_calc( &
                   //' type= '//type)
    end if
 
-#ifndef UNITTEST
-   call outfld(fname(1), taurx(:,pver+1), ncol, lchnk)
-   call outfld(fname(2), taury(:,pver+1), ncol, lchnk)
-   call outfld(fname(3), utrdg,  ncol, lchnk)
-   call outfld(fname(4), vtrdg,  ncol, lchnk)
-   call outfld('TTGWORO', ttrdg / cpair,  ncol, lchnk)
-#endif
    
 
    deallocate(tau, gwut, phase_speeds)

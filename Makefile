@@ -16,6 +16,7 @@ SRCS = \
     share/shr_string_mod.F90 \
     share/shr_file_mod.F90 \
     share/shr_nl_mod.F90 \
+    share/shr_spfn_mod.F90 \
     utils/dt_bump.F90 \
     utils/physconst.F90 \
     utils/sphere_ops.F90 \
@@ -39,7 +40,9 @@ SRCS = \
     src/gw_common.F90 \
     src/gw_rdg.F90 \
     src/gw_movmtn.F90 \
+    src/gw_front.F90 \
     src/gw_movmtn_calc_mod.F90 \
+    src/gw_front_calc_mod.F90 \
     src/gw_rdg_calc_mod.F90
 
 OBJS = $(SRCS:.F90=.o)

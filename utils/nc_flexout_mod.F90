@@ -23,6 +23,7 @@ module nc_flexout_mod
    public :: ncfile_init_col
    public :: ncfile_set_globals
    public :: ncfile_put_3d
+   public :: ncfile_put_col1d_notime
    public :: ncfile_put_col2d_notime
    public :: ncfile_put_col2d
    public :: ncfile_put_col3d
@@ -158,6 +159,66 @@ contains
       call check_nc(ierr,'put_att(globals)')
       ierr = nf90_enddef(ncid); call check_nc(ierr,'enddef(globals)')
     end subroutine ncfile_set_globals
+
+   !----------------------------
+   ! write a physically 1D field with dims ({level,ilevel})
+   subroutine ncfile_put_col1d_notime(varname, field, units, long_name)
+      character(len=*), intent(in) :: varname
+      real(r8),         intent(in) :: field(:)
+      character(len=*), intent(in), optional :: units, long_name
+
+      integer :: ierr, varid, dimid_zX, nzX_save
+      integer :: dimids(1)
+      integer :: start(1), count(1)
+
+
+      ! Determine vertical dim (lev or ilev) and check sizes 
+      if (size(field,1) == nz_save) then
+         dimid_zX = dimid_z
+         nzX_save = nz_save
+      elseif (size(field,1) == nze_save) then
+         dimid_zX = dimid_ze
+         nzX_save = nze_save
+      else
+         write(*,*) 'Size mismatch in ncfile_put_col3d for ', trim(varname)
+         stop 1
+      end if
+
+      ! Try to find variable
+      ierr = nf90_inq_varid(ncid, trim(varname), varid)
+
+      if (ierr /= nf90_noerr) then
+         ! Need to (re)enter define mode and create it
+         ierr = nf90_redef(ncid); call check_nc(ierr, 'nf90_redef')
+
+         dimids = (/ dimid_zX /)
+         ierr   = nf90_def_var(ncid, trim(varname), NF90_REAL, dimids, varid)
+         call check_nc(ierr, 'def_var '//trim(varname))
+
+         if (present(units)) then
+            ierr = nf90_put_att(ncid, varid, 'units', units)
+            call check_nc(ierr, 'put_att units '//trim(varname))
+         end if
+
+         if (present(long_name)) then
+            ierr = nf90_put_att(ncid, varid, 'long_name', long_name)
+            call check_nc(ierr, 'put_att long_name '//trim(varname))
+         end if
+
+         ierr = nf90_enddef(ncid)
+         call check_nc(ierr, 'nf90_enddef(new var)')
+      end if
+
+      ! Now write this time slice
+      start = (/ 1 /)
+      count = (/ nzX_save /)
+
+      ierr = nf90_put_var(ncid, varid, field, start=start, count=count)
+      call check_nc(ierr, 'put_var '//trim(varname))
+
+
+      
+    end subroutine ncfile_put_col1d_notime
 
    !----------------------------
    ! write a 3D field with dims (lon,lat,level,time)
@@ -320,15 +381,17 @@ contains
       integer,          intent(in) :: itime  ! 1-based time index
       character(len=*), intent(in), optional :: units, long_name
 
-      integer :: ierr, varid, dimid_zX
+      integer :: ierr, varid, dimid_zX, nzX_save
       integer :: dimids(3)
       integer :: start(3), count(3)
 
       ! Determine vertical dim (lev or ilev) and check sizes 
       if (size(field,2) == nz_save) then
          dimid_zX = dimid_z
+         nzX_save = nz_save
       elseif (size(field,2) == nze_save) then
          dimid_zX = dimid_ze
+         nzX_save = nze_save
       else
          write(*,*) 'Size mismatch in ncfile_put_col3d for ', trim(varname)
          stop 1
@@ -365,10 +428,11 @@ contains
 
       ! Now write this time slice
       start = (/ 1, 1, itime /)
-      count = (/ ncol_save, nz_save, 1 /)
+      count = (/ ncol_save, nzX_save, 1 /)
 
       ierr = nf90_put_var(ncid, varid, field, start=start, count=count)
       call check_nc(ierr, 'put_var '//trim(varname))
+
     end subroutine ncfile_put_col3d
 
    !----------------------------
