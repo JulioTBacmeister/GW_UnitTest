@@ -555,7 +555,8 @@ subroutine gw_drag_prof(ncol, band, p, src_level, tend_level, dt, &
                  (alpha(k) + ni(:,k)**2/ubmc2 * d)
               wrk = -2._r8*mi*rog*t(:,k)*(piln(:,k+1) - piln(:,k))
 
-              taudmp = tau(:,l,k+1) * exp(wrk)
+              ! remove this damping for now
+              taudmp = tau(:,l,k+1) ! * exp(wrk)
 
               ! For some reason, PGI 14.1 loses bit-for-bit reproducibility if
               ! we limit tau, so instead limit the arrays used to set it.

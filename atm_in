@@ -25,6 +25,13 @@
  use_topo_file		=  .true.  
  ncdata_type = 'XY_DATA'
 /
+&cam_initfiles_nl_xympas
+ bnd_topo		= '/glade/work/juliob/bndtopo/fv1x1_gmted2010_modis_bedmachine_nc3000_Laplace0100_noleak_greenlndantarcsgh30fac2.50_20251009.nc'
+ ncdata_root		= '/glade/derecho/scratch/juliob/archive/c124_dyamond1/atm/hist/DynVars_dyamond_fv1x1'
+ scale_dry_air_mass		=   98288.0D0 
+ use_topo_file		=  .true.  
+ ncdata_type = 'XYMPAS_DATA'
+/
 &gw_drag_nl
  alpha_gw_movmtn		= 0.008d0
  effgw_beres_dp		= 0.70D0

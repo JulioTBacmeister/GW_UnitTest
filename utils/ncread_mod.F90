@@ -18,6 +18,7 @@ public :: ncread_topo_latlon
 public :: ncread_era5_se_ic
 public :: ncread_camsnap
 public :: ncread_xy_data
+public :: ncread_xympas_data
 
 
 !==========================================================================
@@ -309,6 +310,130 @@ subroutine ncread_xy_data(ncfile , ncol, ny, nx, pver, ntim, &
 #endif  
   
 end subroutine ncread_xy_data
+!====================================================================
+subroutine ncread_xympas_data(ncfile , ncol, ny, nx, pver, ntim, &
+     lon , lat , ilev, zgrid, PINT, U , V , T , Q , ZETA, lat_R, lon_R ) !! , Q )
+
+  use sphere_ops, only: sphere_curl2_xy
+
+  character(len=*), intent(in) :: ncfile
+  
+  integer, intent(out) :: ncol,pver,ntim,ny,nx
+  
+  real(r8) , allocatable, intent(out) :: lon(:), lat(:), ilev(:)
+  real(r8) , allocatable, intent(out) :: U(:,:,:), V(:,:,:), T(:,:,:), PINT(:,:,:)
+  real(r8) , allocatable, intent(out) :: Q(:,:,:), ZETA(:,:,:), zgrid(:,:)
+  real(r8) , allocatable, intent(out) :: lon_R(:), lat_R(:)
+
+  !----- local variables --------------------------
+  !real(r8) , allocatable :: lon_R(:), lat_R(:)
+  real(r8) , allocatable :: lon_xy(:,:), lat_xy(:,:)
+  real(r8) , allocatable :: U_R(:,:,:,:), V_R(:,:,:,:), T_R(:,:,:,:), PINT_R(:,:,:,:)
+  real(r8) , allocatable :: Q_R(:,:,:,:), zgrid_R(:,:,:)
+  real(r8) , allocatable :: ZETA_tk(:,:)
+
+  integer :: i,j,k,icol,itim
+
+  integer :: ncid,status, dimid,varid  ! for netCDF data file
+  
+  status = nf90_open( trim(ncfile) , 0, ncid)
+  IF (STATUS .NE. NF90_NOERR) STOP "cant open "// trim(ncfile) 
+  
+  status = NF90_INQ_DIMID(ncid, 'lev', dimid)
+  status = NF90_INQUIRE_DIMENSION(ncid, dimid, len=pver)
+  
+  status = NF90_INQ_DIMID(ncid, 'lon', dimid)
+  status = NF90_INQUIRE_DIMENSION(ncid, dimid, len=nx)
+
+  status = NF90_INQ_DIMID(ncid, 'lat', dimid)
+  status = NF90_INQUIRE_DIMENSION(ncid, dimid, len=ny)
+  
+  status = NF90_INQ_DIMID(ncid, 'time', dimid)
+  status = NF90_INQUIRE_DIMENSION(ncid, dimid, len=ntim)
+
+  write(*,*) ncfile
+  
+  write(*,*) nx,ny,pver,ntim
+  
+  allocate(  U_R(nx,ny,pver,ntim) , V_R(nx,ny,pver,ntim) , T_R(nx,ny,pver,ntim)  , Q_R(nx,ny,pver,ntim) )
+  allocate(  PINT_R(nx,ny,pver+1,ntim), zgrid_R(nx,ny,pver+1) )
+  allocate(  lat_R(ny) , lon_R(nx)  )
+  allocate(  lat_xy(nx,ny) , lon_xy(nx,ny), ZETA_tk(nx,ny)  )
+  allocate(  ilev(pver+1) )
+
+  ncol=nx*ny
+  allocate(  U(ncol,pver,ntim) , V(ncol,pver,ntim) , T(ncol,pver,ntim)   )
+  allocate(  PINT(ncol,pver+1,ntim), zgrid(ncol,pver+1) )
+  allocate(  Q(ncol,pver,ntim), ZETA(ncol,pver,ntim) )
+  allocate(  lat(ncol) , lon(ncol)  )
+
+  status = NF90_INQ_VARID(ncid, 'ilev', varid)
+  status = NF90_GET_VAR(ncid, varid, ilev )
+  write(*,*) "Got ","ilev ",minval(ilev), maxval(ilev)
+  
+  status = NF90_INQ_VARID(ncid, 'lat', varid)
+  status = NF90_GET_VAR(ncid, varid, lat_R )
+  write(*,*) "Got ","lat ",minval(lat_R), maxval(lat_R)
+  
+  status = NF90_INQ_VARID(ncid, 'lon', varid)
+  status = NF90_GET_VAR(ncid, varid, lon_R )
+  
+  status = NF90_INQ_VARID(ncid, 'zgrid', varid)
+  status = NF90_GET_VAR(ncid, varid, zgrid_R )
+  zgrid =reshape( zgrid_R , [ncol,pver+1] )  !,ntim] )
+  write(*,*) "Got ","zgrid  ",minval(zgrid), maxval(zgrid)
+
+  status = NF90_INQ_VARID(ncid, 'PINT', varid)
+  status = NF90_GET_VAR(ncid, varid, PINT_R )
+  PINT =reshape( PINT_R , [ncol,pver+1,ntim] )
+  write(*,*) "Got ","PINT  ",minval(PINT), maxval(PINT)
+  
+  status = NF90_INQ_VARID(ncid, 'U', varid)
+  status = NF90_GET_VAR(ncid, varid, U_R )
+  U =reshape( U_R , [ncol,pver,ntim] )
+  write(*,*) "Got ","U   ",minval(U), maxval(U)
+  
+  status = NF90_INQ_VARID(ncid, 'V', varid)
+  status = NF90_GET_VAR(ncid, varid, V_R )
+  V =reshape( V_R , [ncol,pver,ntim] )
+  write(*,*) "Got ","V   ",minval(V), maxval(V)
+  
+  status = NF90_INQ_VARID(ncid, 'T', varid)
+  status = NF90_GET_VAR(ncid, varid, T_R )
+  T =reshape( T_R , [ncol,pver,ntim] )
+  write(*,*) "Got ","T   ",minval(T), maxval(T)
+  
+  !status = NF90_INQ_VARID(ncid, 'Q', varid)
+  !status = NF90_GET_VAR(ncid, varid, Q )
+  Q(:,:,:) = 0._r8
+  write(*,*) "Got ","Q   ",minval(Q), maxval(Q)
+  
+  do j=1,ny
+     do i=1,nx
+        lat_xy(i,j)=lat_R(j)
+        lon_xy(i,j)=lon_R(i)
+     end do
+  end do
+  icol=0
+  do j=1,ny
+     do i=1,nx
+        icol=icol+1
+        lat(icol) = lat_xy(i,j)
+        lon(icol) = lon_xy(i,j)
+     end do
+  end do
+
+#if 1
+  do itim=1,ntim
+     do k=1,pver
+        call sphere_curl2_xy(U_R(:,:,k,itim) , V_R(:,:,k,itim) , lat_R, lon_R, ZETA_tk, .TRUE.)
+        ZETA(:,k,itim) = reshape( ZETA_tk , [ncol] )
+     end do
+  end do
+  write(*,*) "Got ","ZETA ",minval(ZETA), maxval(ZETA)
+#endif  
+  
+end subroutine ncread_xympas_data
 
 !==========================================================================
 

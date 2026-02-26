@@ -68,7 +68,7 @@ program gw_driver
   ! Additional fields that will be needed
   ! (Direct ... have dummy time dim)
   real(r8) , allocatable :: pint(:,:,:), pmid(:,:,:), piln(:,:,:), pmln(:,:,:)
-  real(r8) , allocatable :: TH(:,:,:), FRONTGF(:,:,:), FRONTGA(:,:,:)
+  real(r8) , allocatable :: TH(:,:,:), FRONTGF(:,:,:), FRONTGA(:,:,:), zgrid(:,:)
 
   ! Additional fields
   ! (No dummy time dim)
@@ -76,7 +76,7 @@ program gw_driver
   real(r8) , allocatable :: rair3D(:,:), zvir3D(:,:)
 
   ! Other Additional fields
-  real(r8) , allocatable :: alpha(:), pref_edge(:)
+  real(r8) , allocatable :: alpha(:), pref_edge(:), ilev(:)
   real(r8) , allocatable :: kvtt(:,:),flx_heat(:)
 
   real(r8) ::  prndl,dt,time_val
@@ -98,7 +98,7 @@ program gw_driver
   real(r8) :: fcrit2 = 1.0   ! critical froude number squared
 
   logical   , allocatable :: lqptend(:)
-  logical :: trpd_leewave,llatlon
+  logical :: trpd_leewave,llatlon,ldo_rdg
   integer :: lchnk, n_rdg, i,j,k,n
   integer :: yy,mm,dd,hh,ss,ii
   
@@ -130,8 +130,9 @@ program gw_driver
   write(*,*) " alpha_gw_movmtn: ",alpha_gw_movmtn
   write(*,*) " use_gw_movmtn_pbl: ",use_gw_movmtn_pbl
   write(*,*) " use_gw_rdg_beta: ",use_gw_rdg_beta
+  write(*,*) " use_gw_front: ",use_gw_front
   
-  if ( trim(ncdata_type) == 'XY_DATA') then
+  if ( ( trim(ncdata_type) == 'XY_DATA') .or. (trim(ncdata_type) == 'XYMPAS_DATA') ) then
      llatlon=.TRUE.
      call ncread_topo_latlon( bnd_topo , mxdis, angll, aniso, anixy, hwdth, clngt, gbxar, isovar, isowgt, sgh  )
   else
@@ -272,12 +273,80 @@ program gw_driver
 
         call sphere_fronto_wrapper( TH, U, V, lat_R, lon_R, FRONTGF, FRONTGA )
 
-        !-----------------------------
-        ! Need to figure ZETA for ERA5
-        ! Set dummy var=0 for now
-        !------------------------------
-        ! allocate( ZETA(ncol,pver,ntim)  )
-        ! ZETA = 0._r8
+     else if ( trim(ncdata_type) == 'XYMPAS_DATA') then
+        write(*,*) "XY (regirdded) data from MPAS"
+        call ncread_xympas_data( ncdata , ncol, ny, nx, pver , ntim, &
+             lon , lat , ilev, zgrid, &
+             pint, U , V , T, Q, ZETA, lat_R, lon_R )
+
+        write(*,*) " shape of ilev", shape(ilev)
+        
+        ! Will need these also, later
+        allocate( piln(ncol,pver+1,ntim), pmln(ncol,pver,ntim) , pmid(ncol,pver,ntim) )
+        ! Redundanf (w/ PINT) but saves a hassle
+        allocate( PS(ncol,ntim) )
+
+        pcols = ncol ! does this actaully go back to ppgrid? Yes.
+        pver_in_ppgrid = pver
+
+        
+        do n=1,ntim
+           PS(:,n) = pint(:,pver+1,n)
+           do k=1,pver
+              pmid(:,k,n) = 0.5*( pint(:,k+1,n) + pint(:,k,n) )
+           end do
+        end do
+
+        write(*,*) "Made ","pint   ",minval(pint), maxval(pint), shape(pint)
+        write(*,*) "Made ","pmid   ",minval(pmid), maxval(pmid), shape(pmid)
+
+
+        piln = log( pint )
+        pmln = log( pmid )
+
+        PP = Coords1D(pint(:ncol,:,itime))
+        write(*,*) "PP%ifc "
+        write(*,*) minval( PP%ifc ),maxval( PP%ifc ), shape(PP%ifc)
+
+        allocate( pref_edge(pver+1)  )
+        pref_edge(:) = 100000. * exp( -ilev / 7000. )
+        write(*,*) "Made ","pref_edge   ",minval(pref_edge), maxval(pref_edge)
+
+        call leovy_alpha( pver, pref_edge, alpha )
+        write(*,*) "Made ","alpha   ",minval(alpha), maxval(alpha), shape(alpha)
+
+        call gw_common_init(pver,&
+             tau_0_ubc, ktop, gravit, rair, alpha, & 
+             gw_prndl, gw_qbo_hdepth_scaling, & 
+             errstring)
+
+        allocate( rhoi(ncol,pver+1) , ni(ncol, pver+1), nm(ncol, pver)  )
+        ! Profiles of background state variables
+        call gw_prof(ncol, PP, cpair, T(:,:,itime), rhoi, nm, ni)
+        write(*,*)  "Made ","rhoi   ",minval(rhoi), maxval(rhoi), shape(rhoi)
+
+        write(*,*) "NEED GOEPHT"
+        allocate( zm(ncol,pver) , zi(ncol,pver+1), rair3D(ncol,pver), zvir3D(ncol,pver) )
+
+        ! zi is relative to the local 'ground' elevation ...!!!!!
+        do k=1,pver+1
+           zi(:,k) = zgrid(:,k)-zgrid(:,pver+1)
+        end do
+        do k=1,pver
+           zm(:,k) = 0.5*( zi(:,k+1) + zi(:,k) )
+        end do
+
+        write(*,*)  "Made ","ZI   ",minval(zi), maxval(zi), shape(zi)
+        write(*,*)  "Made ","ZM   ",minval(zm), maxval(zm), shape(zm)
+
+        allocate( TH(ncol,pver,ntim) ,  FRONTGF(ncol,pver,ntim) ,  FRONTGA(ncol,pver,ntim)  )
+
+
+        !TH(:,:,itime) = T(:,:,itime) * ( (100000._r8 / pmid)**(rair/cpair) )   ! + gravit * zm / cpair )
+        TH  = T * ( (100000._r8 / pmid)**(rair/cpair) )   ! + gravit * zm / cpair )
+
+        call sphere_fronto_wrapper( TH, U, V, lat_R, lon_R, FRONTGF, FRONTGA )
+        
      else if ( trim(ncdata_type) == 'camsnap') then
         write(*,*) "Wahhooo"
         call ncread_camsnap( ncdata , ncol, pver , ntim, &
@@ -350,7 +419,8 @@ program gw_driver
      call set_vramp_front()
      call report_from_within_front()
 
-     if ( trim(ncdata_type) == 'XY_DATA') then
+     if ( ( trim(ncdata_type) == 'XY_DATA') .or. &
+          ( trim(ncdata_type) == 'XYMPAS_DATA')) then
         write(*,*) " Adding nx ny to dims ",ny,nx
         call ncfile_init_col( ncout , ncol, pver, time_val, ny, nx, lat_R, lon_R)
      else
@@ -359,16 +429,22 @@ program gw_driver
 
      call ncfile_set_globals(ncdata=ncdata, calculation_type=calculation_type )
 
-     call ncfile_put_col1d_notime('hyam', hyam, '1', 'hybrid midl a-coeff' )
-     call ncfile_put_col1d_notime('hybm', hybm, '1', 'hybrid midl b-coeff' )
-     call ncfile_put_col1d_notime('hyai', hyai, '1', 'hybrid intf a-coeff' )
-     call ncfile_put_col1d_notime('hybi', hybi, '1', 'hybrid intf b-coeff' )
+     if ( trim(ncdata_type) .ne. 'XYMPAS_DATA' ) then
+        call ncfile_put_col1d_notime('hyam', hyam, '1', 'hybrid midl a-coeff' )
+        call ncfile_put_col1d_notime('hybm', hybm, '1', 'hybrid midl b-coeff' )
+        call ncfile_put_col1d_notime('hyai', hyai, '1', 'hybrid intf a-coeff' )
+        call ncfile_put_col1d_notime('hybi', hybi, '1', 'hybrid intf b-coeff' )
+     else
+        call ncfile_put_col1d_notime('ilev', ilev, '1', 'hybrid midl a-coeff' )
+        call ncfile_put_col3d('zgrid' , zgrid, itime, 'm', 'real height at intfcs' )
+     end if
+     
      call ncfile_put_col2d_notime('lat', lat, 'deg', 'latitude' )
      call ncfile_put_col2d_notime('lon', lon, 'deg', 'longitude' )
      call ncfile_put_col2d_notime('SGH', sgh, 'm', 'topography std' )
      call ncfile_put_col2d('PS' , PS(:,itime), itime, 'Pa', 'surface pressure' )
-     call ncfile_put_col3d('ZM' , zm, itime, 'm', 'height at midlayer' )
-     call ncfile_put_col3d('ZI' , zi, itime, 'm', 'height at intfcs' )
+     call ncfile_put_col3d('ZM' , zm, itime, 'm', 'height above ground at midlayer' )
+     call ncfile_put_col3d('ZI' , zi, itime, 'm', 'height above ground at intfcs' )
      call ncfile_put_col3d('PMID' , pmid(:,:,itime), itime, 'Pa', 'pressure at midlayer' )
      call ncfile_put_col3d('PINT' , pint(:,:,itime), itime, 'Pa', 'pressure at intfcs' )
      call ncfile_put_col3d('U' , U(:,:,itime), itime, 'ms-1', 'zonal wind' )
@@ -402,12 +478,13 @@ program gw_driver
      write(*,*) "At input ","PP%ifc ",minval(PP%ifc), maxval(PP%ifc), shape(PP%ifc)
 
   
+     allocate( kvtt(ncol,pver+1) , flx_heat(ncol) )
+     dt = 86400._r8 /48._r8 
+     ! "molecular diffusivity" ... init(never changes) =>0.
+     kvtt = 0._r8
+
      if (use_gw_rdg_beta) then
-        ! Doing the calculation
-        !   - need to allocate some vars
-        allocate( kvtt(ncol,pver+1) , flx_heat(ncol) )
         n_rdg=1
-        dt = 86400._r8 /48._r8 
         call gw_rdg_calc( &
              'BETA ', ncol, lchnk, n_rdg, dt, &
              U(:,:,itime) , V(:,:,itime) , T(:,:,itime) , &
@@ -425,28 +502,30 @@ program gw_driver
 
 
   
-     call gw_movmtn_calc( &
-          ncol, lchnk, dt, pref_edge, &
-          U(:,:,itime) , V(:,:,itime) , T(:,:,itime) , &
-          ZETA(:,:,itime) , &
-          PP , piln(:,:,itime) , zm, zi, &
-          nm, ni, rhoi, kvtt, Q(:,:,:), dse, &
-          effgw_movmtn_pbl, &
+     if (use_gw_movmtn_pbl) then
+        call gw_movmtn_calc( &
+             ncol, lchnk, dt, pref_edge, &
+             U(:,:,itime) , V(:,:,itime) , T(:,:,itime) , &
+             ZETA(:,:,itime) , &
+             PP , piln(:,:,itime) , zm, zi, &
+             nm, ni, rhoi, kvtt, Q(:,:,:), dse, &
+             effgw_movmtn_pbl, &
                                 !++jtb  ptend defined in massively hacked physics_types
-          ptend, flx_heat) 
+             ptend, flx_heat) 
+     end if
 
-
-     call gw_front_calc( &
-          ncol, lchnk, dt, pref_edge, &
-          U(:,:,itime) , V(:,:,itime) , T(:,:,itime) , &
-          FRONTGF(:,:,itime) , &
-          PP , piln(:,:,itime) , zm, zi, &
-          nm, ni, rhoi, kvtt, Q(:,:,:), dse, &
-          effgw_cm, &
-          frontgfc, taubgnd, front_gaussian_width, &
+     if (use_gw_front) then
+        call gw_front_calc( &
+             ncol, lchnk, dt, pref_edge, &
+             U(:,:,itime) , V(:,:,itime) , T(:,:,itime) , &
+             FRONTGF(:,:,itime) , &
+             PP , piln(:,:,itime) , zm, zi, &
+             nm, ni, rhoi, kvtt, Q(:,:,:), dse, &
+             effgw_cm, &
+             frontgfc, taubgnd, front_gaussian_width, &
                                 !++jtb  ptend defined in massively hacked physics_types
-          ptend, flx_heat) 
-     
+             ptend, flx_heat) 
+     end if
 
      close( unit=20 )
      call ncfile_close()
@@ -493,6 +572,9 @@ subroutine free_fields( )
 
   if (allocated(FRONTGF))    deallocate(FRONTGF)
   if (allocated(FRONTGA))    deallocate(FRONTGA)
+
+  if (allocated(zgrid))      deallocate(zgrid)
+  if (allocated(ilev))       deallocate(ilev)
 
   
   if (allocated(nm_))        deallocate(nm_)

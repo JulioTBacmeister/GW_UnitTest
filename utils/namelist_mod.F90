@@ -93,6 +93,7 @@ subroutine atm_readnl(nlfile ) !, bnd_topo, ncdata )
   namelist /cam_initfiles_nl_camsnap/ bnd_topo, ncdata_root, scale_dry_air_mass, use_topo_file, ncdata_type
   namelist /cam_initfiles_nl_ERA5/ bnd_topo, ncdata_root, scale_dry_air_mass, use_topo_file, ncdata_type
   namelist /cam_initfiles_nl_xy/ bnd_topo, ncdata_root, scale_dry_air_mass, use_topo_file, ncdata_type
+  namelist /cam_initfiles_nl_xympas/ bnd_topo, ncdata_root, scale_dry_air_mass, use_topo_file, ncdata_type
 
   namelist /gw_drag_nl/ alpha_gw_movmtn, effgw_beres_dp, effgw_cm, effgw_movmtn_pbl, &
      effgw_rdg_beta, effgw_rdg_beta_max, effgw_rdg_resid, front_gaussian_width, &
@@ -139,6 +140,14 @@ subroutine atm_readnl(nlfile ) !, bnd_topo, ncdata )
      call find_group_name(unitn, 'cam_initfiles_nl_xy', status=ierr)
      if (ierr == 0) then
         read(unitn, cam_initfiles_nl_xy, iostat=ierr)
+        if (ierr /= 0) then
+           call endrun(' ERROR reading namelist cam_initfiles')
+        end if
+     end if
+  else if ( trim(calculation_type) == 'xympas') then
+     call find_group_name(unitn, 'cam_initfiles_nl_xympas', status=ierr)
+     if (ierr == 0) then
+        read(unitn, cam_initfiles_nl_xympas, iostat=ierr)
         if (ierr /= 0) then
            call endrun(' ERROR reading namelist cam_initfiles')
         end if
