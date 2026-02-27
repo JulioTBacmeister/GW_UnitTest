@@ -3,14 +3,20 @@
   !   and then some, ... a lot more and then some
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   use namelist_mod, only: atm_readnl,drv_readnl
+
+
+
+
+  ! ****  Deal with these ...  ***
+  ! Paramters now, possibly never used
+  use namelist_mod, only:  scale_dry_air_mass, use_topo_file
+
   !
   ! --- top_level_control
   use namelist_mod, only: calculation_type, start_year, start_month, start_day, &
-      start_hour, nsteps, dt_step, ncout_root, casename
-  
+      start_hour, nsteps, dt_step, ncout_root, casename, &
+      bnd_topo, ncdata_root, ncdata_type
 
-  ! --- cam_initfiles
-  use namelist_mod, only: bnd_topo, ncdata_root, scale_dry_air_mass, use_topo_file, ncdata_type
   ! --- gw_drag
   use namelist_mod, only: alpha_gw_movmtn, effgw_beres_dp, effgw_cm, effgw_movmtn_pbl, &
      effgw_rdg_beta, effgw_rdg_beta_max, effgw_rdg_resid, front_gaussian_width, &

@@ -20,7 +20,6 @@ import re
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Generate topo cases.")
-    #parser.add_argument("--smoothing_scale", type=int, help="Smoothing scale")
     parser.add_argument("--output-dir", type=str, default="./cases", dest="output_dir", help="Path to mother of casedirs ")
     parser.add_argument("--casename", type=str, default="exp00", help="casename ")
     parser.add_argument("--type", type=str, default="xy", help="type of calc - xy, camsnap, or ERA5")
@@ -28,6 +27,11 @@ def parse_arguments():
     parser.add_argument("--clean-case", action="store_true", dest="clean_case", help="Delete existing case directory if it exists")
     parser.add_argument("--run", action="store_true", dest="run_case", help="If set runs case, if not just builds")
     parser.add_argument("--build", action="store_true", dest="build_case", help="If set builds case")
+
+    parser.add_argument("--ncdata_root", type=str, dest="ncdata_root", help="Path to ncdata ")
+    parser.add_argument("--bnd_topo", type=str, dest="bnd_topo", help="topo file ")
+
+
     return parser.parse_args()
 
 def load_config(config_path):
@@ -39,6 +43,40 @@ def clean_case_directory(case_dir):
         print(f"Cleaning existing case directory: {case_dir}")
         shutil.rmtree(case_dir)
 
+def update_or_add_namelist_value(filename, key, new_value):
+    """
+    Update a Fortran namelist assignment if it exists, otherwise add it
+    before the namelist terminator ('/').
+
+    Preserves spacing and comments.
+    """
+    pattern = re.compile(rf"^(\s*{key}\s*=\s*)'([^']*)'(.*)$")
+    out_lines = []
+    found = False
+
+    with open(filename, "r") as f:
+        for line in f:
+            m = pattern.match(line)
+            if m:
+                prefix, old_val, suffix = m.groups()
+                out_lines.append(f"{prefix}'{new_value}'{suffix}\n")
+                found = True
+            else:
+                out_lines.append(line)
+
+    # If key was not found, insert it before '/'
+    if not found:
+        for i, line in reversed(list(enumerate(out_lines))):
+            if line.strip().startswith("/"):
+                indent = "  "  # or infer from file
+                out_lines.insert(i, f"{indent}{key} = '{new_value}'\n")
+                break
+        else:
+            raise RuntimeError("No namelist terminator '/' found")
+
+    with open(filename, "w") as f:
+        f.writelines(out_lines)
+        
 def update_namelist_value(filename, key, new_value):
     """
     Updates a Fortran namelist assignment like:
@@ -110,6 +148,41 @@ def main():
     run_case = args.run_case if args.run_case else config.get("run_case", False)
     build_case = args.build_case if args.build_case else config.get("build_case", False)
 
+    if ( runtype == 'xy'):
+        bnd_topo_def = '/glade/work/juliob/bndtopo/fv1x1_gmted2010_modis_bedmachine_nc3000_Laplace0100_noleak_greenlndantarcsgh30fac2.50_20251009.nc'
+        ncdata_root_def  = '/glade/derecho/scratch/juliob/archive//c153_topfix_ne240pg3_FMTHIST_xic_x02/atm/fv1x1/c153_topfix_ne240pg3_FMTHIST_xic_x02.cam.h1i'
+        ncdata_type = 'XY_DATA'
+    elif ( runtype == 'xympas'):
+        bnd_topo_def = '/glade/work/juliob/bndtopo/fv1x1_gmted2010_modis_bedmachine_nc3000_Laplace0100_noleak_greenlndantarcsgh30fac2.50_20251009.nc'
+        ncdata_root_def  = '/glade/derecho/scratch/juliob/archive/c124_dyamond1/atm/hist/DynVars_dyamond_fv1x1'
+        ncdata_type = 'XYMPAS_DATA'
+    elif ( runtype == 'camsnap'):
+        bnd_topo_def  = '/glade/work/juliob/bndtopo/ne30pg3_gmted2010_modis_bedmachine_nc3000_Laplace0100_noleak_20240720.nc'
+        ncdata_root_def	 = '/glade/derecho/scratch/juliob/archive/ndg_x02_ne30pg3_fmt_c64109/atm/hist/ndg_x02_ne30pg3_fmt_c64109.cam.h2i' 
+        ncdata_type = 'camsnap'
+    elif ( runtype == 'ERA5'):
+        bnd_topo_def  = '/glade/work/juliob/bndtopo/ne30pg3_gmted2010_modis_bedmachine_nc3000_Laplace0100_noleak_20240720.nc'
+        ncdata_root_def	 = '/glade/campaign/cgd/amp/juliob/ERA5/ne30pg3/L93/2014/ERA5_x_ne30pg3_L93_rgC2_WO'  
+        ncdata_type = 'ERA5_SE_IC'
+    else:
+        bnd_topo_def  = 'None'
+        ncdata_root_def	 = 'None'  
+        
+    if args.ncdata_root is not None:
+        ncdata_root = args.ncdata_root
+    elif config.get("ncdata_root") is not None:
+        ncdata_root = config["ncdata_root"]
+    else:
+        ncdata_root = ncdata_root_def
+    print( f" ncdata_root , {ncdata_root}" )
+        
+    if args.bnd_topo is not None:
+        bnd_topo = args.bnd_topo
+    elif config.get("bnd_topo") is not None:
+        bnd_topo = config["ncdata_root"]
+    else:
+        bnd_topo = bnd_topo_def
+    
     casename = f'{runtype}-{casename}'
     case_dir = os.path.join(odir, casename )
 
@@ -157,6 +230,10 @@ def main():
     #Modify namelist drv_in
     update_namelist_value( f"drv_in", "calculation_type", runtype)
     update_namelist_value( f"drv_in", "casename", casename)
+    
+    update_or_add_namelist_value( f"drv_in", "ncdata_root", ncdata_root)
+    update_or_add_namelist_value( f"drv_in", "bnd_topo", bnd_topo)
+    update_or_add_namelist_value( f"drv_in", "ncdata_type", ncdata_type)
 
     ncout_root = read_namelist_value('drv_in', 'ncout_root' ) 
     os.makedirs(os.path.join(ncout_root, casename ), exist_ok=True)
@@ -170,3 +247,5 @@ def main():
     
 if __name__ == "__main__":
     main()
+
+    

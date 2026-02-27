@@ -117,6 +117,12 @@ program gw_driver
   ncout_root = &
         trim(ncout_root)//trim(casename)//'/'//trim(casename)//'.h'
 
+
+  
+  
+  write(*,*) "scale_dry_air_mass : ",scale_dry_air_mass
+  write(*,*) "use_topo_file : ",use_topo_file
+
   write(*,*) "calculation_type :",calculation_type
   write(*,*) "ncdata_root :",ncdata_root
   write(*,*) "ncdata_type :",ncdata_type
