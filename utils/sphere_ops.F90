@@ -87,9 +87,9 @@ contains
     rlat = deg2rad * lat
     rlon = deg2rad * lon
 
-    ! Uniform-step assumption, matching your Python (uses [3]-[1])
-    if (ny >= 3) then
-      dlat = rlat(3) - rlat(1)
+    ! Uniform-step assumption, matching your Python (uses [3]-[1]) !!!unsafe!!!
+    if (ny >= 5) then
+      dlat = rlat(5) - rlat(3)
     else
       dlat = 0.0_r8
     end if
@@ -190,8 +190,9 @@ contains
     rlon = deg2rad * lon
 
     ! Uniform-step assumption, matching your Python (uses [3]-[1])
-    if (ny >= 3) then
-      dlat = rlat(3) - rlat(1)
+    if (ny >= 5) then
+      !dlat = rlat(3) - rlat(1) ! unsafe due to bad SCRIP
+      dlat = rlat(5) - rlat(3)
     else
       dlat = 0.0_r8
     end if

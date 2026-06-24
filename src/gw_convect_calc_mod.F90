@@ -99,14 +99,6 @@ subroutine gw_movmtn_calc( &
    integer :: tlb_level(ncol)
 
    
-   ! Pressures of source(launch) level and steering level
-   real(r8) ::  pmid(ncol,pver), delp(ncol,pver)
-   real(r8) ::  p_movmtn_steer(ncol)
-   real(r8) ::  p_movmtn_launch(ncol)
-   ! Indices of source(launch) level and steering level
-   real(r8) ::  k_steer_out(ncol)
-   real(r8) ::  k_launch_out(ncol)
-
    ! Indices of source(launch) level and steering level
    integer ::  movmtn_ksteer, movmtn_klaunch
 
@@ -158,11 +150,6 @@ subroutine gw_movmtn_calc( &
    real(r8) :: upwp_clubb_gw(ncol,pver), vpwp_clubb_gw(ncol,pver), xpwp_clubb(ncol,pver) 
    real(r8) :: ttend_clubb(ncol,pver), ttend_dp(ncol,pver) , hdepth(ncol)
 
-   ! Tilting term = mag( u_z*zeta, v_z*zeta )
-   real(r8) :: tilt(ncol,pver)
-   ! Source momentum fluxes
-   real(r8) :: xpwp_src_1(ncol), xpwp_src_2(ncol), xpwp_src_3(ncol)
-
    character(len=1) :: cn
    character(len=9) :: fname(4)
    !----------------------------------------------------------------------------
@@ -176,12 +163,7 @@ subroutine gw_movmtn_calc( &
    allocate(phase_speeds(ncol,band_movmtn%ngwv:band_movmtn%ngwv),stat=istat)
    call alloc_err(istat,'rdg_calc','phase_speeds',ncol*(band_movmtn%ngwv**2+1))
 
-   !==============
-   ! Extract pmid from god-awful obfuscatory p-construct 
-   pmid = p%mid
-   delp = p%del
 
-   
    !=============================================================
    ! None of this needed for the gw_movmtn_pbl source but here for
    ! future devel0pment
@@ -227,22 +209,9 @@ subroutine gw_movmtn_calc( &
 
    call gw_movmtn_src(ncol, lchnk, band_movmtn , movmtn_desc, &
         u, v, ttend_dp(:ncol,:), ttend_clubb(:ncol,:), xpwp_clubb(:ncol,:), vort4gw(:ncol,:), &
-        zm, pmid, delp, alpha_gw_movmtn, movmtn_source, movmtn_ksteer, movmtn_klaunch, src_level, tend_level, &
+        zm, alpha_gw_movmtn, movmtn_source, movmtn_ksteer, movmtn_klaunch, src_level, tend_level, &
         tau, ubm, ubi, xv, yv, &
-        phase_speeds, hdepth, p_movmtn_steer, p_movmtn_launch, tilt, &
-        k_steer_out, k_launch_out, &
-        xpwp_src_1, xpwp_src_2, xpwp_src_3 ) 
-
-   call ncfile_put_col2d('XPWP_SRC_1', xpwp_src_1 , itime, '1', 'GW source 1' )
-   call ncfile_put_col2d('XPWP_SRC_2', xpwp_src_2 , itime, '1', 'GW source 2' )
-   call ncfile_put_col2d('XPWP_SRC_3', xpwp_src_3 , itime, '1', 'GW source 3' )
-
-   call ncfile_put_col2d('K_STEER_MOVMTN',  1.0_r8 * k_steer_out , itime, '1', 'steering level idx for movmtn GW' )
-   call ncfile_put_col2d('K_LAUNCH_MOVMTN', 1.0_r8 * k_launch_out , itime, '1', 'launch level idx for movmtn GW' )
-   call ncfile_put_col2d('P_STEER_MOVMTN',   p_movmtn_steer , itime, 'Pa', 'steering level for movmtn GW' )
-   call ncfile_put_col2d('P_LAUNCH_MOVMTN',  p_movmtn_launch , itime, 'Pa', 'launch level for movmtn GW' )
-   call ncfile_put_col3d('TILT',  tilt , itime, 's-2', 'tilting of vertical vorticity' )
-   call ncfile_put_col3d('PMID_MOVMTN',  pmid , itime, 'Pa', 'midlevel pressure in movmtn' )
+        phase_speeds, hdepth)
 
    ! Project stress into directional components.
    taucd = calc_taucd(ncol, band_movmtn%ngwv, tend_level, tau, phase_speeds, xv, yv, ubi)

@@ -22,7 +22,8 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description="Generate topo cases.")
     parser.add_argument("--output-dir", type=str, default="./cases", dest="output_dir", help="Path to mother of casedirs ")
     parser.add_argument("--casename", type=str, default="exp00", help="casename ")
-    parser.add_argument("--type", type=str, default="xy", help="type of calc - xy, camsnap, or ERA5")
+    parser.add_argument("--input-case", type=str, dest="input_case", help="case ID for input/forcing ")
+    parser.add_argument("--type", type=str, default="xy", help="type of calc - xy, xympas, camsnap, or ERA5")
     parser.add_argument("--config", type=str, default="create_case.yaml", help="Path to YAML configuration file (default: create_case.yaml)")
     parser.add_argument("--clean-case", action="store_true", dest="clean_case", help="Delete existing case directory if it exists")
     parser.add_argument("--run", action="store_true", dest="run_case", help="If set runs case, if not just builds")
@@ -149,20 +150,22 @@ def main():
     build_case = args.build_case if args.build_case else config.get("build_case", False)
 
     if ( runtype == 'xy'):
-        bnd_topo_def = '/glade/work/juliob/bndtopo/fv1x1_gmted2010_modis_bedmachine_nc3000_Laplace0100_noleak_greenlndantarcsgh30fac2.50_20251009.nc'
-        ncdata_root_def  = '/glade/derecho/scratch/juliob/archive//c153_topfix_ne240pg3_FMTHIST_xic_x02/atm/fv1x1/c153_topfix_ne240pg3_FMTHIST_xic_x02.cam.h1i'
+        input_case = args.input_case or "c153_topfix_ne240pg3_FMTHIST_xic_x02"
+        bnd_topo_def = f'/glade/work/juliob/bndtopo/fv1x1_gmted2010_modis_bedmachine_nc3000_Laplace0100_noleak_greenlndantarcsgh30fac2.50_20251009.nc'
+        ncdata_root_def  = f'/glade/derecho/scratch/juliob/archive//{input_case}/atm/fv1x1/{input_case}.cam.h1i'
         ncdata_type = 'XY_DATA'
     elif ( runtype == 'xympas'):
-        bnd_topo_def = '/glade/work/juliob/bndtopo/fv1x1_gmted2010_modis_bedmachine_nc3000_Laplace0100_noleak_greenlndantarcsgh30fac2.50_20251009.nc'
-        ncdata_root_def  = '/glade/derecho/scratch/juliob/archive/c124_dyamond1/atm/hist/DynVars_dyamond_fv1x1'
+        input_case = args.input_case or "c124_dyamond1_prod2"
+        bnd_topo_def = f'/glade/work/juliob/bndtopo/fv1x1_gmted2010_modis_bedmachine_nc3000_Laplace0100_noleak_greenlndantarcsgh30fac2.50_20251009.nc'
+        ncdata_root_def  = f'/glade/derecho/scratch/juliob/archive/{input_case}/atm/hist/DynVars_dyamond_fv1x1'
         ncdata_type = 'XYMPAS_DATA'
     elif ( runtype == 'camsnap'):
-        bnd_topo_def  = '/glade/work/juliob/bndtopo/ne30pg3_gmted2010_modis_bedmachine_nc3000_Laplace0100_noleak_20240720.nc'
-        ncdata_root_def	 = '/glade/derecho/scratch/juliob/archive/ndg_x02_ne30pg3_fmt_c64109/atm/hist/ndg_x02_ne30pg3_fmt_c64109.cam.h2i' 
+        bnd_topo_def  = f'/glade/work/juliob/bndtopo/ne30pg3_gmted2010_modis_bedmachine_nc3000_Laplace0100_noleak_20240720.nc'
+        ncdata_root_def	 = f'/glade/derecho/scratch/juliob/archive/ndg_x02_ne30pg3_fmt_c64109/atm/hist/ndg_x02_ne30pg3_fmt_c64109.cam.h2i' 
         ncdata_type = 'camsnap'
     elif ( runtype == 'ERA5'):
-        bnd_topo_def  = '/glade/work/juliob/bndtopo/ne30pg3_gmted2010_modis_bedmachine_nc3000_Laplace0100_noleak_20240720.nc'
-        ncdata_root_def	 = '/glade/campaign/cgd/amp/juliob/ERA5/ne30pg3/L93/2014/ERA5_x_ne30pg3_L93_rgC2_WO'  
+        bnd_topo_def  = f'/glade/work/juliob/bndtopo/ne30pg3_gmted2010_modis_bedmachine_nc3000_Laplace0100_noleak_20240720.nc'
+        ncdata_root_def	 = f'/glade/campaign/cgd/amp/juliob/ERA5/ne30pg3/L93/2014/ERA5_x_ne30pg3_L93_rgC2_WO'  
         ncdata_type = 'ERA5_SE_IC'
     else:
         bnd_topo_def  = 'None'
