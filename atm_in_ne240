@@ -26,7 +26,7 @@
  gw_top_taper		= .false.
  movmtn_plaunch		=  32500.0d0  
  movmtn_psteer		=  65000.0d0  
- movmtn_source		=  3       
+ movmtn_source		=  1       
  n_rdg_beta		= 10
  pgwv		= 32
  pgwv_long		= 0
@@ -84,7 +84,7 @@
  srf_flux_avg		= 0
  use_gw_convect_dp		= .true.
  use_gw_convect_sh		= .false.
- use_gw_front		= .false.
+ use_gw_front		= .true.
  use_gw_front_igw		= .false.
  use_gw_movmtn_pbl		= .true.
  use_gw_oro		= .false.

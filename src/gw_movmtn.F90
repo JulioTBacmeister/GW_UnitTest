@@ -40,7 +40,12 @@ subroutine gw_movmtn_src(ncol,lchnk, band, desc, u, v, &
      src_level, tend_level, tau, ubm, ubi, xv, yv, &
      c, hdepth, p_steer, p_launch, tilt, &
      k_steer_out, k_launch_out, &
-     xpwp_src_1, xpwp_src_2, xpwp_src_3 )
+     xpwp_src_1, xpwp_src_2, xpwp_src_3 , &
+     usteer_out , vsteer_out, &
+     ulnch_out , vlnch_out, &
+     uwavef_out, vwavef_out )
+
+  
 !-----------------------------------------------------------------------
 ! Flexible driver for gravity wave source from obstacle effects produced
 ! by internal circulations
@@ -108,6 +113,10 @@ subroutine gw_movmtn_src(ncol,lchnk, band, desc, u, v, &
   real(r8), intent(out) :: tilt(ncol,pver)
   ! Source momentum fluxes
   real(r8), intent(out) :: xpwp_src_1(ncol), xpwp_src_2(ncol), xpwp_src_3(ncol)
+  ! steering, launch, and wave frame velocity diags
+  real(r8), intent(out) :: usteer_out(ncol) , vsteer_out(ncol)
+  real(r8), intent(out) :: ulnch_out(ncol) , vlnch_out(ncol)
+  real(r8), intent(out) :: uwavef_out(ncol,pver),vwavef_out(ncol,pver)
 
 !---------------------------Local Storage-------------------------------
   ! Column and (vertical) level indices.
@@ -184,6 +193,14 @@ subroutine gw_movmtn_src(ncol,lchnk, band, desc, u, v, &
   xpwp_src_2 = 0.0_r8
   xpwp_src_3 = 0.0_r8
 
+  usteer_out = 0.0_r8
+  vsteer_out =  0.0_r8
+  ulnch_out  =  0.0_r8
+  vlnch_out  =  0.0_r8
+  uwavef_out  = 0.0_r8
+  vwavef_out  = 0.0_r8
+
+
   write(*,*) " Debugging gw_movmtn.F90 "
   write(*,*) " use_gw_movmtn_pbl" , use_gw_movmtn_pbl
   write(*,*) " movmtn_source    " , movmtn_source
@@ -214,6 +231,7 @@ subroutine gw_movmtn_src(ncol,lchnk, band, desc, u, v, &
           xpwp_src, Steer_k, Launch_k, p_steer, p_launch, &
           usteer, vsteer)
      xpwp_src_3 = xpwp_src
+     write(*,*) " using source_type = 3 "
   end if
 
   !-------------------------------------------------
@@ -338,8 +356,8 @@ subroutine gw_movmtn_src(ncol,lchnk, band, desc, u, v, &
   ! ground-based speeds in a plane perpendicular to wave fronts.
   !------------------------------------------------------------
   do i=1,ncol
-     udiff(i) = u(i,topi(i)) - usteer(i)
-     vdiff(i) = v(i,topi(i)) - vsteer(i)
+     !udiff(i) = u(i,topi(i)) - usteer(i)
+     !vdiff(i) = v(i,topi(i)) - vsteer(i)
      do k=1,pver
         uwavef(i, k ) = u(i, k ) - usteer(i)
         vwavef(i, k ) = v(i, k ) - vsteer(i)
@@ -367,6 +385,16 @@ subroutine gw_movmtn_src(ncol,lchnk, band, desc, u, v, &
   call outfld('STEER_LEVEL_MOVMTN',steer_level, ncol, lchnk )
   call outfld('XPWP_SRC_MOVMTN', xpwp_src , ncol, lchnk )
 #endif
+
+  usteer_out(:ncol) = usteer(:ncol)
+  vsteer_out(:ncol) = vsteer(:ncol)
+  ulnch_out(:ncol)  = udiff(:ncol)
+  vlnch_out(:ncol)  = vdiff(:ncol)
+  uwavef_out(:ncol,:)  = uwavef(:ncol,:)
+  vwavef_out(:ncol,:)  = vwavef(:ncol,:)
+
+
+  
   !----------------------------------------------------------
   ! Project the local wave relative wind at midpoints onto the
   !  direction of the wavevector.
@@ -704,12 +732,15 @@ subroutine tilt_dyn_src(tilt, u, v, pmid, delp, ncol, pver, alpha_gw_movmtn, &
   real(r8), intent(out) :: usteer(ncol), vsteer(ncol)
 
   real(r8), parameter :: scale_factor    = 1.e6_r8
-  real(r8), parameter :: p_min_centroid  = 0._r8
+  real(r8), parameter :: p_min_centroid  = 2000._r8
   real(r8), parameter :: p_max_centroid  = 80000._r8
+
+  real(r8) ::umag(ncol,pver)
 
   real(r8) :: z_steer(ncol), z_launch(ncol)
   integer  :: i
 
+  umag = sqrt( u**2 + v**2 )
   !--- Centroid-based steering and launch levels --------------------------
   call vorticity_centroid_levels(tilt, pmid, ncol, pver, &
        p_min_centroid, p_max_centroid, &

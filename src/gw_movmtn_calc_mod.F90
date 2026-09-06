@@ -162,6 +162,10 @@ subroutine gw_movmtn_calc( &
    real(r8) :: tilt(ncol,pver)
    ! Source momentum fluxes
    real(r8) :: xpwp_src_1(ncol), xpwp_src_2(ncol), xpwp_src_3(ncol)
+   ! steering, launch, and wave frame velocity diags
+   real(r8) :: usteer_out(ncol) , vsteer_out(ncol)
+   real(r8) :: ulnch_out(ncol) , vlnch_out(ncol)
+   real(r8) :: uwavef_out(ncol,pver),vwavef_out(ncol,pver)
 
    character(len=1) :: cn
    character(len=9) :: fname(4)
@@ -231,7 +235,10 @@ subroutine gw_movmtn_calc( &
         tau, ubm, ubi, xv, yv, &
         phase_speeds, hdepth, p_movmtn_steer, p_movmtn_launch, tilt, &
         k_steer_out, k_launch_out, &
-        xpwp_src_1, xpwp_src_2, xpwp_src_3 ) 
+        xpwp_src_1, xpwp_src_2, xpwp_src_3, &
+        usteer_out , vsteer_out, &
+        ulnch_out , vlnch_out, &
+        uwavef_out, vwavef_out )
 
    call ncfile_put_col2d('XPWP_SRC_1', xpwp_src_1 , itime, '1', 'GW source 1' )
    call ncfile_put_col2d('XPWP_SRC_2', xpwp_src_2 , itime, '1', 'GW source 2' )
@@ -244,6 +251,14 @@ subroutine gw_movmtn_calc( &
    call ncfile_put_col3d('TILT',  tilt , itime, 's-2', 'tilting of vertical vorticity' )
    call ncfile_put_col3d('PMID_MOVMTN',  pmid , itime, 'Pa', 'midlevel pressure in movmtn' )
 
+   call ncfile_put_col2d('USTEER_MOVMTN',  usteer_out , itime, 'ms-1', 'Steering x-wind' )
+   call ncfile_put_col2d('VSTEER_MOVMTN',  vsteer_out , itime, 'ms-1', 'Steering y-wind' )
+   call ncfile_put_col2d('ULAUNCH_MOVMTN', ulnch_out ,  itime, 'ms-1', 'relative launch x-wind' )
+   call ncfile_put_col2d('VLAUNCH_MOVMTN', vlnch_out ,  itime, 'ms-1', 'relative launch y-wind' )
+   call ncfile_put_col3d('UWAVEF_MOVMTN',  uwavef_out , itime, 'ms-1', 'wave-relative x-wind' )
+   call ncfile_put_col3d('VWAVEF_MOVMTN',  vwavef_out , itime, 'ms-1', 'wave-relative y-wind' )
+   
+   
    ! Project stress into directional components.
    taucd = calc_taucd(ncol, band_movmtn%ngwv, tend_level, tau, phase_speeds, xv, yv, ubi)
 

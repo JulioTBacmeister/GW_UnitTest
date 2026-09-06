@@ -1,0 +1,12 @@
+&top_ctl_nl
+! Valid values 'camsnap','xy','ERA5'
+ calculation_type = 'xy'
+ start_year = 2004
+ start_month = 7
+ start_day = 2
+ start_hour = 0
+ nsteps = 1
+ dt_step = 6
+ ncout_root	= '/glade/derecho/scratch/juliob/archive/GW_UnitTest/'
+ casename = 'xy-test'
+/
