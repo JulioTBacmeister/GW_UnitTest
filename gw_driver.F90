@@ -153,7 +153,18 @@ program gw_driver
   !--------------------------------------------------------------------
   ncol_topo = size( mxdis, 1 )
   nrdgs     = size( mxdis, 2 )
+  !-----------------------------------------------------------------------
+  ! Number of ridges actually used. Capped by what the topo file holds, so a
+  ! tile file with nrdg=49 is used up to n_rdg_beta. Set n_rdg_beta >= nrdg in
+  ! atm_in to use every ridge. (Was hardwired to 1, which discarded all but
+  ! the dominant ridge.)
+  !
+  ! Set here rather than inside the time loop so it is available to
+  ! ncfile_set_globals, which records it in the output file.
+  !-----------------------------------------------------------------------
+  n_rdg = min( n_rdg_beta, nrdgs )
   write(*,*) " bnd_topo: ncol = ", ncol_topo, "  nrdg = ", nrdgs
+  write(*,*) " using n_rdg = ", n_rdg, " of ", nrdgs, " ridges in topo file"
 
   yy=start_year; mm=start_month; dd=start_day; hh=start_hour
   do ii=1,nsteps
@@ -442,7 +453,8 @@ program gw_driver
         call ncfile_init_col( ncout , ncol, pver, time_val)
      end if
 
-     call ncfile_set_globals(ncdata=ncdata, calculation_type=calculation_type )
+     call ncfile_set_globals(ncdata=ncdata, calculation_type=calculation_type, &
+                             bnd_topo=bnd_topo, n_rdg=n_rdg, nrdg_file=nrdgs )
 
      if ( trim(ncdata_type) .ne. 'XYMPAS_DATA' ) then
         call ncfile_put_col1d_notime('hyam', hyam, '1', 'hybrid midl a-coeff' )
@@ -511,14 +523,7 @@ program gw_driver
      end if
 
      if (use_gw_rdg_beta) then
-        !-----------------------------------------------------------------
-        ! Number of ridges actually used. Capped by what the topo file
-        ! holds, so a tile file with nrdg=49 is used up to n_rdg_beta.
-        ! Set n_rdg_beta >= nrdg in atm_in to use every ridge.
-        ! (Was hardwired to 1, which discarded all but the dominant ridge.)
-        !-----------------------------------------------------------------
-        n_rdg = min( n_rdg_beta, nrdgs )
-        write(*,*) " using n_rdg = ", n_rdg, " of ", nrdgs, " ridges in topo file" 
+        ! n_rdg is set once, before the time loop, next to the topo read.
         call gw_rdg_calc( &
              'BETA ', ncol, lchnk, n_rdg, dt, &
              U(:,:,itime) , V(:,:,itime) , T(:,:,itime) , &

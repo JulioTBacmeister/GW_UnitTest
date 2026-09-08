@@ -139,10 +139,20 @@ contains
     !============================================================
     subroutine ncfile_set_globals(title, institution, source, &
                                   references, comment, ncdata, &
-                                  calculation_type )
+                                  calculation_type, bnd_topo, n_rdg, nrdg_file )
       !===========================
-      !integer,          intent(in) :: ncid ! In preamble ... 
+      ! bnd_topo, n_rdg and nrdg_file record which topography file the ridge
+      ! quantities came from and how many of its ridges were actually used, so
+      ! that a GW output file can be matched to its topo file without relying
+      ! on memory or directory layout. When bnd_topo is given, the topo file's
+      ! own provenance attributes (GIT_DESCRIBE, GIT_BRANCH, data_script,
+      ! creation_date) are copied across with a 'bnd_topo_' prefix -- the tile
+      ! definitions have changed often enough that knowing the file name alone
+      ! is not sufficient.
+      !===========================
       character(*),     intent(in), optional :: title, institution, source, references, comment, ncdata, calculation_type
+      character(*),     intent(in), optional :: bnd_topo
+      integer,          intent(in), optional :: n_rdg, nrdg_file
       integer :: ierr
 
       ! You must be in define mode to add/modify attributes
@@ -157,12 +167,54 @@ contains
       if (present(calculation_type)) ierr = nf90_put_att(ncid, NF90_GLOBAL, &
                                             'calculation_type',  trim(calculation_type))
 
+      if (present(bnd_topo)) ierr = nf90_put_att(ncid, NF90_GLOBAL, 'bnd_topo', trim(bnd_topo))
+      if (present(n_rdg))    ierr = nf90_put_att(ncid, NF90_GLOBAL, 'n_rdg_used', n_rdg)
+      if (present(nrdg_file))ierr = nf90_put_att(ncid, NF90_GLOBAL, 'nrdg_in_bnd_topo', nrdg_file)
+
       ! CF hint (pick the version you follow; or omit if you don’t want to claim one)
       ierr = nf90_put_att(ncid, NF90_GLOBAL, 'Conventions', 'CF-1.8')
 
       call check_nc(ierr,'put_att(globals)')
       ierr = nf90_enddef(ncid); call check_nc(ierr,'enddef(globals)')
+
+      if (present(bnd_topo)) call copy_topo_provenance(trim(bnd_topo))
+
     end subroutine ncfile_set_globals
+
+    !----------------------------
+    ! Copy the topography file's provenance attributes onto this file, each
+    ! prefixed 'bnd_topo_'. Failure to open or read the topo file is reported
+    ! but never fatal: this is metadata, not results.
+    !----------------------------
+    subroutine copy_topo_provenance(topofile)
+      character(len=*), intent(in) :: topofile
+      character(len=*), parameter  :: wanted(5) = [ character(len=16) :: &
+           'GIT_DESCRIBE', 'GIT_BRANCH', 'GIT_HASH', 'data_script', 'creation_date' ]
+      integer :: tid, ierr, i, alen
+      character(len=1024) :: val
+
+      ierr = nf90_open(trim(topofile), NF90_NOWRITE, tid)
+      if (ierr /= nf90_noerr) then
+         write(*,*) 'ncfile: could not open bnd_topo for provenance: ', trim(topofile)
+         write(*,*) '        ', trim(nf90_strerror(ierr))
+         return
+      end if
+
+      ierr = nf90_redef(ncid)
+      do i = 1, size(wanted)
+         ierr = nf90_inquire_attribute(tid, NF90_GLOBAL, trim(wanted(i)), len=alen)
+         if (ierr /= nf90_noerr) cycle
+         if (alen > len(val)) cycle
+         val = ''
+         ierr = nf90_get_att(tid, NF90_GLOBAL, trim(wanted(i)), val)
+         if (ierr /= nf90_noerr) cycle
+         ierr = nf90_put_att(ncid, NF90_GLOBAL, 'bnd_topo_'//trim(wanted(i)), &
+                             trim(val(1:alen)))
+      end do
+      ierr = nf90_enddef(ncid); call check_nc(ierr,'enddef(topo provenance)')
+
+      ierr = nf90_close(tid)
+    end subroutine copy_topo_provenance
 
    !----------------------------
    ! write a physically 1D field with dims ({level,ilevel})
