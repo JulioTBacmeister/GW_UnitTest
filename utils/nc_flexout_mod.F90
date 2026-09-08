@@ -493,7 +493,13 @@ contains
       if (ierr /= nf90_noerr) then
          ierr = nf90_redef(ncid); call check_nc(ierr, 'nf90_redef')
          dimids = (/ dimid_col, dimid_rdg, dimid_time /)
-         ierr   = nf90_def_var(ncid, trim(varname), NF90_REAL, dimids, varid)
+         ! Chunk = exactly one ridge slice, which is the unit written below, so
+         ! no read-modify-write. deflate: these fields are mostly zero (columns
+         ! with no ridge drag), so compression is large and net faster.
+         ierr   = nf90_def_var(ncid, trim(varname), NF90_REAL, dimids, varid, &
+                               chunksizes  = (/ ncol_save, 1, 1 /), &
+                               shuffle     = .true., &
+                               deflate_level = 1 )
          call check_nc(ierr, 'def_var '//trim(varname))
          if (present(units))     ierr = nf90_put_att(ncid, varid, 'units', units)
          if (present(long_name)) ierr = nf90_put_att(ncid, varid, 'long_name', long_name)
@@ -539,7 +545,12 @@ contains
       if (ierr /= nf90_noerr) then
          ierr = nf90_redef(ncid); call check_nc(ierr, 'nf90_redef')
          dimids = (/ dimid_col, dimid_zX, dimid_rdg, dimid_time /)
-         ierr   = nf90_def_var(ncid, trim(varname), NF90_REAL, dimids, varid)
+         ! See note in ncfile_put_col2d_rdg. At ne30pg3 this takes a profile
+         ! variable from ~18 MB to a few hundred kB per ridge per step.
+         ierr   = nf90_def_var(ncid, trim(varname), NF90_REAL, dimids, varid, &
+                               chunksizes  = (/ ncol_save, nzX_save, 1, 1 /), &
+                               shuffle     = .true., &
+                               deflate_level = 1 )
          call check_nc(ierr, 'def_var '//trim(varname))
          if (present(units))     ierr = nf90_put_att(ncid, varid, 'units', units)
          if (present(long_name)) ierr = nf90_put_att(ncid, varid, 'long_name', long_name)

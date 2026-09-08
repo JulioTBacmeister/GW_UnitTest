@@ -8,6 +8,7 @@ use physics_types,  only: physics_ptend
 use ppgrid, only: pcnst, pcols
 use cam_abortutils, only: endrun
 use nc_flexout_mod
+use namelist_mod, only: lrdg_diag_2d, lrdg_diag_3d
 
 implicit none
 private
@@ -231,8 +232,10 @@ subroutine gw_rdg_calc( &
          ubmsrc, nsrc, rsrc, m2src, tlb, bwv, Fr1, Fr2, Frx, &
          tauoro, taudsw, hdspwv, hdspdw)
 
-      call ncfile_put_col3d_rdg('TAU_A_RDG', tau(:,0,:), itime, nn, n_rdg, &
-           'N m-2', 'stress profile after source' )
+      if (lrdg_diag_3d) then
+         call ncfile_put_col3d_rdg('TAU_A_RDG', tau(:,0,:), itime, nn, n_rdg, &
+              'N m-2', 'stress profile after source' )
+      end if
 
       call gw_rdg_break_trap(ncol, band_oro, &
          zi, nm, ni, ubm, ubi, rhoi, kwvrdg , bwv, tlb, wbr, &
@@ -241,8 +244,10 @@ subroutine gw_rdg_calc( &
          ldo_trapped_waves=trpd_leewv)
 
 
-      call ncfile_put_col3d_rdg('TAU_B_RDG', tau(:,0,:), itime, nn, n_rdg, &
-           'N m-2', 'stress profile after DSW' )
+      if (lrdg_diag_3d) then
+         call ncfile_put_col3d_rdg('TAU_B_RDG', tau(:,0,:), itime, nn, n_rdg, &
+              'N m-2', 'stress profile after DSW' )
+      end if
       
       call gw_drag_prof(ncol, band_oro, p, src_level, tend_level, dt, &
          t, vramp,    &
@@ -287,33 +292,89 @@ subroutine gw_rdg_calc( &
       ! Fr2, anixy, hdspwv and hdspdw are the fields that explain a given
       ! TAUDSW, and are written alongside it.
       !--------------------------------------------------------------------
-      call ncfile_put_col2d_rdg('BWV', bwv, itime, nn, n_rdg, 'm', 'bottom of wave layer' )
-      call ncfile_put_col2d_rdg('TLB', tlb, itime, nn, n_rdg, 'm', 'top of blocking layer' )
-      call ncfile_put_col2d_rdg('WBR', wbr, itime, nn, n_rdg, 'm', 'wave breaking height' )
-      call ncfile_put_col2d_rdg('UBMSRC_RDG', ubmsrc, itime, nn, n_rdg, 'm s-1', 'on-ridge wind source layer' )
-      call ncfile_put_col2d_rdg('NSRC_RDG', nsrc, itime, nn, n_rdg, 's-1', 'strat freq source layer' )
-      call ncfile_put_col2d_rdg('TAUORO', tauoro, itime, nn, n_rdg, 'N m-2', 'orog source flux' )
+      if (lrdg_diag_2d) then
+         call ncfile_put_col2d_rdg('BWV', bwv, itime, nn, n_rdg, 'm', 'bottom of wave layer' )
+      end if
+      if (lrdg_diag_2d) then
+         call ncfile_put_col2d_rdg('TLB', tlb, itime, nn, n_rdg, 'm', 'top of blocking layer' )
+      end if
+      if (lrdg_diag_2d) then
+         call ncfile_put_col2d_rdg('WBR', wbr, itime, nn, n_rdg, 'm', 'wave breaking height' )
+      end if
+      if (lrdg_diag_2d) then
+         call ncfile_put_col2d_rdg('UBMSRC_RDG', ubmsrc, itime, nn, n_rdg, 'm s-1', 'on-ridge wind source layer' )
+      end if
+      if (lrdg_diag_2d) then
+         call ncfile_put_col2d_rdg('USRC_RDG', usrc, itime, nn, n_rdg, 'm s-1', 'on-ridge zonal wind source layer' )
+      end if
+      if (lrdg_diag_2d) then
+         call ncfile_put_col2d_rdg('VSRC_RDG', vsrc, itime, nn, n_rdg, 'm s-1', 'on-ridge meridional wind source layer' )
+      end if
+      if (lrdg_diag_2d) then
+         call ncfile_put_col2d_rdg('NSRC_RDG', nsrc, itime, nn, n_rdg, 's-1', 'strat freq source layer' )
+      end if
+      if (lrdg_diag_2d) then
+         call ncfile_put_col2d_rdg('TAUORO', tauoro, itime, nn, n_rdg, 'N m-2', 'orog source flux' )
+      end if
       ! NOTE: this previously wrote tauoro under the name TAUDSW.
-      call ncfile_put_col2d_rdg('TAUDSW', taudsw, itime, nn, n_rdg, 'N m-2', 'DSW flux enhancement' )
-      call ncfile_put_col2d_rdg('HDSPWV', hdspwv, itime, nn, n_rdg, 'm', 'displacement launching free waves' )
-      call ncfile_put_col2d_rdg('HDSPDW', hdspdw, itime, nn, n_rdg, 'm', 'displacement driving downslope wind' )
-      call ncfile_put_col2d_rdg('FRX', Frx, itime, nn, n_rdg, '1', 'nondim mountain height mxdis*N/U/Fr_c' )
-      call ncfile_put_col2d_rdg('FR1', Fr1, itime, nn, n_rdg, '1', 'critical inverse Froude number' )
-      call ncfile_put_col2d_rdg('FR2', Fr2, itime, nn, n_rdg, '1', 'divergent-streamline Froude number' )
-      call ncfile_put_col2d_rdg('M2SRC', m2src, itime, nn, n_rdg, 'm-2', 'vertical wavenumber squared at source' )
-      call ncfile_put_col2d_rdg('EFFGW_RDG', effgw, itime, nn, n_rdg, '1', 'wave efficiency hwdth*clngt/gbxar' )
-      call ncfile_put_col2d_rdg('SRC_LEVEL', real(src_level,r8), itime, nn, n_rdg, '1', 'source level index' )
-      call ncfile_put_col2d_rdg('TLB_LEVEL', real(tlb_level,r8), itime, nn, n_rdg, '1', 'top-of-blocking level index' )
+      if (lrdg_diag_2d) then
+         call ncfile_put_col2d_rdg('TAUDSW', taudsw, itime, nn, n_rdg, 'N m-2', 'DSW flux enhancement' )
+      end if
+      if (lrdg_diag_2d) then
+         call ncfile_put_col2d_rdg('HDSPWV', hdspwv, itime, nn, n_rdg, 'm', 'displacement launching free waves' )
+      end if
+      if (lrdg_diag_2d) then
+         call ncfile_put_col2d_rdg('HDSPDW', hdspdw, itime, nn, n_rdg, 'm', 'displacement driving downslope wind' )
+      end if
+      if (lrdg_diag_2d) then
+         call ncfile_put_col2d_rdg('FRX', Frx, itime, nn, n_rdg, '1', 'nondim mountain height mxdis*N/U/Fr_c' )
+      end if
+      if (lrdg_diag_2d) then
+         call ncfile_put_col2d_rdg('FR1', Fr1, itime, nn, n_rdg, '1', 'critical inverse Froude number' )
+      end if
+      if (lrdg_diag_2d) then
+         call ncfile_put_col2d_rdg('FR2', Fr2, itime, nn, n_rdg, '1', 'divergent-streamline Froude number' )
+      end if
+      if (lrdg_diag_2d) then
+         call ncfile_put_col2d_rdg('M2SRC', m2src, itime, nn, n_rdg, 'm-2', 'vertical wavenumber squared at source' )
+      end if
+      if (lrdg_diag_2d) then
+         call ncfile_put_col2d_rdg('EFFGW_RDG', effgw, itime, nn, n_rdg, '1', 'wave efficiency hwdth*clngt/gbxar' )
+      end if
+      if (lrdg_diag_2d) then
+         call ncfile_put_col2d_rdg('SRC_LEVEL', real(src_level,r8), itime, nn, n_rdg, '1', 'source level index' )
+      end if
+      if (lrdg_diag_2d) then
+         call ncfile_put_col2d_rdg('TLB_LEVEL', real(tlb_level,r8), itime, nn, n_rdg, '1', 'top-of-blocking level index' )
+      end if
       ! Ridge properties actually used, echoed per ridge for convenience
-      call ncfile_put_col2d_rdg('MXDIS_RDG', mxdis(:,nn), itime, nn, n_rdg, 'm', 'obstacle height' )
-      call ncfile_put_col2d_rdg('ANIXY_RDG', anixy(:,nn), itime, nn, n_rdg, '1', 'anisotropy' )
-      call ncfile_put_col2d_rdg('HWDTH_RDG', hwdth(:,nn), itime, nn, n_rdg, 'km', 'ridge width' )
-      call ncfile_put_col2d_rdg('CLNGT_RDG', clngt(:,nn), itime, nn, n_rdg, 'km', 'ridge crest length' )
-      call ncfile_put_col3d_rdg('UBM_RDG', ubm, itime, nn, n_rdg, 'm s-1', 'on-ridge wind' )
-      call ncfile_put_col3d_rdg('TAU_RDG', tau(:,0,:), itime, nn, n_rdg, 'N m-2', 'stress profile - rdg' )
-      call ncfile_put_col3d_rdg('TAU_DIAG_RDG', tau_diag, itime, nn, n_rdg, 'N m-2', 'pre-pixie stress profile - rdg' )
-      call ncfile_put_col3d_rdg('UTGW_RDG', utgw, itime, nn, n_rdg, 'm s-2', 'x-wind tendency, this ridge' )
-      call ncfile_put_col3d_rdg('VTGW_RDG', vtgw, itime, nn, n_rdg, 'm s-2', 'y-wind tendency, this ridge' )
+      if (lrdg_diag_2d) then
+         call ncfile_put_col2d_rdg('MXDIS_RDG', mxdis(:,nn), itime, nn, n_rdg, 'm', 'obstacle height' )
+      end if
+      if (lrdg_diag_2d) then
+         call ncfile_put_col2d_rdg('ANIXY_RDG', anixy(:,nn), itime, nn, n_rdg, '1', 'anisotropy' )
+      end if
+      if (lrdg_diag_2d) then
+         call ncfile_put_col2d_rdg('HWDTH_RDG', hwdth(:,nn), itime, nn, n_rdg, 'km', 'ridge width' )
+      end if
+      if (lrdg_diag_2d) then
+         call ncfile_put_col2d_rdg('CLNGT_RDG', clngt(:,nn), itime, nn, n_rdg, 'km', 'ridge crest length' )
+      end if
+      if (lrdg_diag_3d) then
+         call ncfile_put_col3d_rdg('UBM_RDG', ubm, itime, nn, n_rdg, 'm s-1', 'on-ridge wind' )
+      end if
+      if (lrdg_diag_3d) then
+         call ncfile_put_col3d_rdg('TAU_RDG', tau(:,0,:), itime, nn, n_rdg, 'N m-2', 'stress profile - rdg' )
+      end if
+      if (lrdg_diag_3d) then
+         call ncfile_put_col3d_rdg('TAU_DIAG_RDG', tau_diag, itime, nn, n_rdg, 'N m-2', 'pre-pixie stress profile - rdg' )
+      end if
+      if (lrdg_diag_3d) then
+         call ncfile_put_col3d_rdg('UTGW_RDG', utgw, itime, nn, n_rdg, 'm s-2', 'x-wind tendency, this ridge' )
+      end if
+      if (lrdg_diag_3d) then
+         call ncfile_put_col3d_rdg('VTGW_RDG', vtgw, itime, nn, n_rdg, 'm s-2', 'y-wind tendency, this ridge' )
+      end if
       
    end do ! end of loop over multiple ridges
 

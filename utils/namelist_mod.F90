@@ -21,6 +21,14 @@ character(len=256) :: ncdata
 
 integer :: start_year, start_month, start_day
 integer :: start_hour, nsteps
+!
+! Per-ridge diagnostic output control (offline driver only).
+!   lrdg_diag_2d  cheap: ~4 MB per ridge per step at ne30pg3
+!   lrdg_diag_3d  expensive: ~127 MB per ridge per step (7 profile variables)
+! Set both .false. to time the compute alone.
+!
+logical :: lrdg_diag_2d = .true.
+logical :: lrdg_diag_3d = .true.
 integer :: dt_step
 
 
@@ -56,6 +64,7 @@ public :: drv_readnl
 public :: atm_readnl
 
 ! Single public line for all variables
+public :: lrdg_diag_2d, lrdg_diag_3d
 public :: bnd_topo, ncdata, scale_dry_air_mass, use_topo_file,ncdata_type, &
      alpha_gw_movmtn, effgw_beres_dp, effgw_cm, effgw_movmtn_pbl, &
      effgw_rdg_beta, effgw_rdg_beta_max, effgw_rdg_resid, front_gaussian_width, &
@@ -98,7 +107,8 @@ subroutine drv_readnl(nlfile ) !, bnd_topo, ncdata )
   !namelist /cam_initfiles_nl_xy/ bnd_topo, ncdata_root, scale_dry_air_mass, use_topo_file, ncdata_type
   
   namelist /top_ctl_nl/ calculation_type,start_year, start_month, start_day, start_hour, nsteps, dt_step, &
-       ncout_root,casename, bnd_topo, ncdata_root, ncdata_type
+       ncout_root,casename, bnd_topo, ncdata_root, ncdata_type, &
+       lrdg_diag_2d, lrdg_diag_3d
 
   ! These need to be dealt with somehow
   !  scale_dry_air_mass, use_topo_file,
