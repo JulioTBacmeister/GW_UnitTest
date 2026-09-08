@@ -17,6 +17,8 @@ module nc_flexout_mod
    integer, save :: ny_save     = 0
    integer, save :: nz_save     = 0
    integer, save :: nze_save    = 0
+   integer, save :: dimid_rdg   = -1
+   integer, save :: nrdg_save   = 0
 
 
    public :: ncfile_init
@@ -27,6 +29,8 @@ module nc_flexout_mod
    public :: ncfile_put_col2d_notime
    public :: ncfile_put_col2d
    public :: ncfile_put_col3d
+   public :: ncfile_put_col2d_rdg
+   public :: ncfile_put_col3d_rdg
    public :: ncfile_close
    
 contains
@@ -434,6 +438,119 @@ contains
       call check_nc(ierr, 'put_var '//trim(varname))
 
     end subroutine ncfile_put_col3d
+
+   !----------------------------
+   !----------------------------
+   ! Ridge-resolved output.
+   !
+   ! gw_rdg_calc loops over n_rdg ridges per column; these write one ridge's
+   ! slice at a time, so they can be called from inside that loop with irdg=nn.
+   ! The 'nrdg' dimension is created on first use, so ncfile_init_col needs no
+   ! change and files without ridge output are unaffected.
+   !
+   !   ncfile_put_col2d_rdg  field(ncol)      -> (ncol, nrdg, time)
+   !   ncfile_put_col3d_rdg  field(ncol, nz)  -> (ncol, lev|ilev, nrdg, time)
+   !----------------------------
+   subroutine ensure_rdg_dim(nrdg)
+      integer, intent(in) :: nrdg
+      integer :: ierr
+      if (dimid_rdg /= -1) then
+         if (nrdg /= nrdg_save) then
+            write(*,*) 'ncfile: nrdg changed from ', nrdg_save, ' to ', nrdg
+            stop 1
+         end if
+         return
+      end if
+      ierr = nf90_redef(ncid)
+      if (ierr /= nf90_noerr .and. ierr /= NF90_EINDEFINE) call check_nc(ierr,'redef(rdg)')
+      ierr = nf90_def_dim(ncid, 'nrdg', nrdg, dimid_rdg)
+      call check_nc(ierr, 'def_dim nrdg')
+      ierr = nf90_enddef(ncid); call check_nc(ierr, 'enddef(rdg)')
+      nrdg_save = nrdg
+   end subroutine ensure_rdg_dim
+
+   !----------------------------
+   subroutine ncfile_put_col2d_rdg(varname, field, itime, irdg, nrdg, units, long_name)
+      character(len=*), intent(in) :: varname
+      real(r8),         intent(in) :: field(:)
+      integer,          intent(in) :: itime, irdg, nrdg
+      character(len=*), intent(in), optional :: units, long_name
+
+      integer :: ierr, varid, dimids(3), start(3), count(3)
+
+      call ensure_rdg_dim(nrdg)
+
+      if (size(field,1) /= ncol_save) then
+         write(*,*) 'Size mismatch in ncfile_put_col2d_rdg for ', trim(varname)
+         stop 1
+      end if
+      if (irdg < 1 .or. irdg > nrdg) then
+         write(*,*) 'irdg out of range in ncfile_put_col2d_rdg for ', trim(varname), irdg
+         stop 1
+      end if
+
+      ierr = nf90_inq_varid(ncid, trim(varname), varid)
+      if (ierr /= nf90_noerr) then
+         ierr = nf90_redef(ncid); call check_nc(ierr, 'nf90_redef')
+         dimids = (/ dimid_col, dimid_rdg, dimid_time /)
+         ierr   = nf90_def_var(ncid, trim(varname), NF90_REAL, dimids, varid)
+         call check_nc(ierr, 'def_var '//trim(varname))
+         if (present(units))     ierr = nf90_put_att(ncid, varid, 'units', units)
+         if (present(long_name)) ierr = nf90_put_att(ncid, varid, 'long_name', long_name)
+         ierr = nf90_enddef(ncid); call check_nc(ierr, 'nf90_enddef(new var)')
+      end if
+
+      start = (/ 1, irdg, itime /)
+      count = (/ ncol_save, 1, 1 /)
+      ierr = nf90_put_var(ncid, varid, field, start=start, count=count)
+      call check_nc(ierr, 'put_var '//trim(varname))
+   end subroutine ncfile_put_col2d_rdg
+
+   !----------------------------
+   subroutine ncfile_put_col3d_rdg(varname, field, itime, irdg, nrdg, units, long_name)
+      character(len=*), intent(in) :: varname
+      real(r8),         intent(in) :: field(:,:)
+      integer,          intent(in) :: itime, irdg, nrdg
+      character(len=*), intent(in), optional :: units, long_name
+
+      integer :: ierr, varid, dimid_zX, nzX_save
+      integer :: dimids(4), start(4), count(4)
+
+      call ensure_rdg_dim(nrdg)
+
+      if (size(field,2) == nz_save) then
+         dimid_zX = dimid_z  ; nzX_save = nz_save
+      elseif (size(field,2) == nze_save) then
+         dimid_zX = dimid_ze ; nzX_save = nze_save
+      else
+         write(*,*) 'Size mismatch in ncfile_put_col3d_rdg for ', trim(varname)
+         stop 1
+      end if
+      if (size(field,1) /= ncol_save) then
+         write(*,*) 'Size mismatch in ncfile_put_col3d_rdg for ', trim(varname)
+         stop 1
+      end if
+      if (irdg < 1 .or. irdg > nrdg) then
+         write(*,*) 'irdg out of range in ncfile_put_col3d_rdg for ', trim(varname), irdg
+         stop 1
+      end if
+
+      ierr = nf90_inq_varid(ncid, trim(varname), varid)
+      if (ierr /= nf90_noerr) then
+         ierr = nf90_redef(ncid); call check_nc(ierr, 'nf90_redef')
+         dimids = (/ dimid_col, dimid_zX, dimid_rdg, dimid_time /)
+         ierr   = nf90_def_var(ncid, trim(varname), NF90_REAL, dimids, varid)
+         call check_nc(ierr, 'def_var '//trim(varname))
+         if (present(units))     ierr = nf90_put_att(ncid, varid, 'units', units)
+         if (present(long_name)) ierr = nf90_put_att(ncid, varid, 'long_name', long_name)
+         ierr = nf90_enddef(ncid); call check_nc(ierr, 'nf90_enddef(new var)')
+      end if
+
+      start = (/ 1, 1, irdg, itime /)
+      count = (/ ncol_save, nzX_save, 1, 1 /)
+      ierr = nf90_put_var(ncid, varid, field, start=start, count=count)
+      call check_nc(ierr, 'put_var '//trim(varname))
+   end subroutine ncfile_put_col3d_rdg
 
    !----------------------------
    subroutine ncfile_close()

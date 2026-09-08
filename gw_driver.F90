@@ -52,7 +52,7 @@ program gw_driver
 
   integer ncid,status, dimid,varid  ! for netCDF data file
 
-  integer :: ncol, nrdgs, pver, ntim, itime, nx, ny
+  integer :: ncol, nrdgs, ncol_topo, pver, ntim, itime, nx, ny
 
   ! Ridge parameters
   real(r8)  , allocatable :: mxdis(:,:), angll(:,:), aniso(:,:), anixy(:,:), hwdth(:,:), clngt(:,:)
@@ -145,7 +145,16 @@ program gw_driver
      llatlon=.FALSE.
      call ncread_topo( bnd_topo , mxdis, angll, aniso, anixy, hwdth, clngt, gbxar, isovar, isowgt, sgh )
   end if
-  
+
+  !--------------------------------------------------------------------
+  ! Dimensions of the topo file. ncread_topo keeps its own ncol/nrdgs
+  ! local, so recover them from the returned arrays. nrdgs is 'nrdg' in
+  ! the file: 16 for an angle-binned topo file, maxtiles for a tile file.
+  !--------------------------------------------------------------------
+  ncol_topo = size( mxdis, 1 )
+  nrdgs     = size( mxdis, 2 )
+  write(*,*) " bnd_topo: ncol = ", ncol_topo, "  nrdg = ", nrdgs
+
   yy=start_year; mm=start_month; dd=start_day; hh=start_hour
   do ii=1,nsteps
      ss=hh*3600
@@ -489,8 +498,27 @@ program gw_driver
      ! "molecular diffusivity" ... init(never changes) =>0.
      kvtt = 0._r8
 
+     !--------------------------------------------------------------------
+     ! The topo arrays are sized by the topo file's ncol, the state arrays
+     ! by the data file's. Nothing downstream checks they agree, so a
+     ! ne30np4/ne30pg3 mix-up would read out of bounds silently.
+     !--------------------------------------------------------------------
+     if ( ncol /= ncol_topo ) then
+        write(*,*) "FATAL: ncol mismatch between bnd_topo and ncdata"
+        write(*,*) "   bnd_topo ncol = ", ncol_topo
+        write(*,*) "   ncdata   ncol = ", ncol
+        stop 1
+     end if
+
      if (use_gw_rdg_beta) then
-        n_rdg=1
+        !-----------------------------------------------------------------
+        ! Number of ridges actually used. Capped by what the topo file
+        ! holds, so a tile file with nrdg=49 is used up to n_rdg_beta.
+        ! Set n_rdg_beta >= nrdg in atm_in to use every ridge.
+        ! (Was hardwired to 1, which discarded all but the dominant ridge.)
+        !-----------------------------------------------------------------
+        n_rdg = min( n_rdg_beta, nrdgs )
+        write(*,*) " using n_rdg = ", n_rdg, " of ", nrdgs, " ridges in topo file" 
         call gw_rdg_calc( &
              'BETA ', ncol, lchnk, n_rdg, dt, &
              U(:,:,itime) , V(:,:,itime) , T(:,:,itime) , &

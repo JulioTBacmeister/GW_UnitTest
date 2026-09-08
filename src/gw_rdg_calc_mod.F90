@@ -18,6 +18,10 @@ public :: set_vramp
 public :: report_from_within
 
 ! anisotropic ridge fields
+! prdg was the hardwired ridge-count used to declare the topo dummy
+! arguments. They are now declared (ncol,n_rdg) instead, so that a tile
+! topo file with nrdg > 16 is handled without reading outside the
+! declared extent. Kept for reference / other uses.
 integer, parameter :: prdg = 16
 
 
@@ -71,13 +75,13 @@ subroutine gw_rdg_calc( &
    real(r8),         intent(in) :: effgw_rdg_max
    real(r8),         intent(in) :: effgw_rdg_resid  ! Tendency efficiency.
    logical,          intent(in) :: luse_gw_rdg_resid ! On-Off switch 
-   real(r8),         intent(in) :: hwdth(ncol,prdg) ! width of ridges.
-   real(r8),         intent(in) :: clngt(ncol,prdg) ! length of ridges.
+   real(r8),         intent(in) :: hwdth(ncol,n_rdg) ! width of ridges.
+   real(r8),         intent(in) :: clngt(ncol,n_rdg) ! length of ridges.
    real(r8),         intent(in) :: gbxar(ncol)      ! gridbox area
 
-   real(r8),         intent(in) :: mxdis(ncol,prdg) ! Height estimate for ridge (m).
-   real(r8),         intent(in) :: angll(ncol,prdg) ! orientation of ridges.
-   real(r8),         intent(in) :: anixy(ncol,prdg) ! Anisotropy parameter.
+   real(r8),         intent(in) :: mxdis(ncol,n_rdg) ! Height estimate for ridge (m).
+   real(r8),         intent(in) :: angll(ncol,n_rdg) ! orientation of ridges.
+   real(r8),         intent(in) :: anixy(ncol,n_rdg) ! Anisotropy parameter.
 
    real(r8),         intent(in) :: isovar(ncol)     ! sqrt of residual variance
    real(r8),         intent(in) :: isowgt(ncol)     ! area frac of residual variance
@@ -227,9 +231,8 @@ subroutine gw_rdg_calc( &
          ubmsrc, nsrc, rsrc, m2src, tlb, bwv, Fr1, Fr2, Frx, &
          tauoro, taudsw, hdspwv, hdspdw)
 
-      if (nn == 1) then
-         call ncfile_put_col3d('TAU_A_RDG',  tau(:,0,:) , itime, 'N m-2', 'stress profile after source' )
-      end if
+      call ncfile_put_col3d_rdg('TAU_A_RDG', tau(:,0,:), itime, nn, n_rdg, &
+           'N m-2', 'stress profile after source' )
 
       call gw_rdg_break_trap(ncol, band_oro, &
          zi, nm, ni, ubm, ubi, rhoi, kwvrdg , bwv, tlb, wbr, &
@@ -238,9 +241,8 @@ subroutine gw_rdg_calc( &
          ldo_trapped_waves=trpd_leewv)
 
 
-      if (nn == 1) then
-         call ncfile_put_col3d('TAU_B_RDG',  tau(:,0,:) , itime, 'N m-2', 'stress profile after DSW' )
-      end if
+      call ncfile_put_col3d_rdg('TAU_B_RDG', tau(:,0,:), itime, nn, n_rdg, &
+           'N m-2', 'stress profile after DSW' )
       
       call gw_drag_prof(ncol, band_oro, p, src_level, tend_level, dt, &
          t, vramp,    &
@@ -275,22 +277,54 @@ subroutine gw_rdg_calc( &
          taury(:,k)  =  taury(:,k) + taury0(:,k)
       end do
 
-      if (nn == 1) then
-         call ncfile_put_col2d('BWV',  bwv , itime, 'm', 'bottom of wave layer' )
-         call ncfile_put_col2d('TLB',  tlb , itime, 'm', 'top of blocking layer' )
-         call ncfile_put_col2d('WBR',  wbr , itime, 'm', 'wave breaking height' )
-         call ncfile_put_col2d('UBMSRC_RDG',  ubmsrc , itime, 'm s-1', 'on-ridge wind source layer' )
-         call ncfile_put_col2d('NSRC_RDG',  nsrc , itime, 's-1', 'strat freq source layer' )
-         call ncfile_put_col2d('TAUORO',  tauoro , itime, 'N m-2', 'orog source flux' )
-         call ncfile_put_col3d('UBM_RDG', ubm , itime, 'm s-2', 'on-ridge wind' )
-         call ncfile_put_col2d('TAUDSW',  tauoro , itime, 'N m-2', 'DSW flux enhancement' )
-         call ncfile_put_col3d('TAU_RDG',  tau(:,0,:) , itime, 'N m-2', 'stress profile - rdg' )
-         call ncfile_put_col3d('TAU_DIAG_RDG',  tau_diag , itime, 'N m-2', 'pre-pixie stress profile - rdg' )
-         call ncfile_put_col3d('UTRDG', utrdg , itime, 'm s-2', 'x-wind tendency' )
-         call ncfile_put_col3d('VTRDG', utrdg , itime, 'm s-2', 'y-wind tendency' )
-      end if
+      !--------------------------------------------------------------------
+      ! Per-ridge diagnostics. Written with the _rdg writers so each ridge
+      ! gets its own slice of an (ncol,[lev,]nrdg,time) variable, rather than
+      ! only ridge 1 being reported.
+      !
+      ! DSW occurs where Frx > 1 (obstacle taller than U/N) and Frx < Frx1,
+      ! with strength set by Fr2 = Fr1*(1 + C_GammaMax*anixy). So Frx, Fr1,
+      ! Fr2, anixy, hdspwv and hdspdw are the fields that explain a given
+      ! TAUDSW, and are written alongside it.
+      !--------------------------------------------------------------------
+      call ncfile_put_col2d_rdg('BWV', bwv, itime, nn, n_rdg, 'm', 'bottom of wave layer' )
+      call ncfile_put_col2d_rdg('TLB', tlb, itime, nn, n_rdg, 'm', 'top of blocking layer' )
+      call ncfile_put_col2d_rdg('WBR', wbr, itime, nn, n_rdg, 'm', 'wave breaking height' )
+      call ncfile_put_col2d_rdg('UBMSRC_RDG', ubmsrc, itime, nn, n_rdg, 'm s-1', 'on-ridge wind source layer' )
+      call ncfile_put_col2d_rdg('NSRC_RDG', nsrc, itime, nn, n_rdg, 's-1', 'strat freq source layer' )
+      call ncfile_put_col2d_rdg('TAUORO', tauoro, itime, nn, n_rdg, 'N m-2', 'orog source flux' )
+      ! NOTE: this previously wrote tauoro under the name TAUDSW.
+      call ncfile_put_col2d_rdg('TAUDSW', taudsw, itime, nn, n_rdg, 'N m-2', 'DSW flux enhancement' )
+      call ncfile_put_col2d_rdg('HDSPWV', hdspwv, itime, nn, n_rdg, 'm', 'displacement launching free waves' )
+      call ncfile_put_col2d_rdg('HDSPDW', hdspdw, itime, nn, n_rdg, 'm', 'displacement driving downslope wind' )
+      call ncfile_put_col2d_rdg('FRX', Frx, itime, nn, n_rdg, '1', 'nondim mountain height mxdis*N/U/Fr_c' )
+      call ncfile_put_col2d_rdg('FR1', Fr1, itime, nn, n_rdg, '1', 'critical inverse Froude number' )
+      call ncfile_put_col2d_rdg('FR2', Fr2, itime, nn, n_rdg, '1', 'divergent-streamline Froude number' )
+      call ncfile_put_col2d_rdg('M2SRC', m2src, itime, nn, n_rdg, 'm-2', 'vertical wavenumber squared at source' )
+      call ncfile_put_col2d_rdg('EFFGW_RDG', effgw, itime, nn, n_rdg, '1', 'wave efficiency hwdth*clngt/gbxar' )
+      call ncfile_put_col2d_rdg('SRC_LEVEL', real(src_level,r8), itime, nn, n_rdg, '1', 'source level index' )
+      call ncfile_put_col2d_rdg('TLB_LEVEL', real(tlb_level,r8), itime, nn, n_rdg, '1', 'top-of-blocking level index' )
+      ! Ridge properties actually used, echoed per ridge for convenience
+      call ncfile_put_col2d_rdg('MXDIS_RDG', mxdis(:,nn), itime, nn, n_rdg, 'm', 'obstacle height' )
+      call ncfile_put_col2d_rdg('ANIXY_RDG', anixy(:,nn), itime, nn, n_rdg, '1', 'anisotropy' )
+      call ncfile_put_col2d_rdg('HWDTH_RDG', hwdth(:,nn), itime, nn, n_rdg, 'km', 'ridge width' )
+      call ncfile_put_col2d_rdg('CLNGT_RDG', clngt(:,nn), itime, nn, n_rdg, 'km', 'ridge crest length' )
+      call ncfile_put_col3d_rdg('UBM_RDG', ubm, itime, nn, n_rdg, 'm s-1', 'on-ridge wind' )
+      call ncfile_put_col3d_rdg('TAU_RDG', tau(:,0,:), itime, nn, n_rdg, 'N m-2', 'stress profile - rdg' )
+      call ncfile_put_col3d_rdg('TAU_DIAG_RDG', tau_diag, itime, nn, n_rdg, 'N m-2', 'pre-pixie stress profile - rdg' )
+      call ncfile_put_col3d_rdg('UTGW_RDG', utgw, itime, nn, n_rdg, 'm s-2', 'x-wind tendency, this ridge' )
+      call ncfile_put_col3d_rdg('VTGW_RDG', vtgw, itime, nn, n_rdg, 'm s-2', 'y-wind tendency, this ridge' )
       
    end do ! end of loop over multiple ridges
+
+   !-----------------------------------------------------------------
+   ! Totals summed over all ridges. These are NOT per-ridge, so they
+   ! keep the plain (ncol,lev,time) writers.
+   ! NOTE: VTRDG previously wrote utrdg.
+   !-----------------------------------------------------------------
+   call ncfile_put_col3d('UTRDG', utrdg, itime, 'm s-2', 'x-wind tendency, all ridges' )
+   call ncfile_put_col3d('VTRDG', vtrdg, itime, 'm s-2', 'y-wind tendency, all ridges' )
+   call ncfile_put_col3d('TTRDG', ttrdg, itime, 'J kg-1 s-1', 'heating tendency, all ridges' )
 
    
    !if (luse_gw_rdg_resid == .true.) then ! is this line a possible problem??
