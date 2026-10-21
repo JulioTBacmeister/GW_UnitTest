@@ -51,6 +51,14 @@ contains
       integer,          intent(in) :: nx, ny, nz
       integer :: ierr
 
+      ! Reset per-file module state. This routine creates a NEW file on every
+      ! call (one per timestep), so any dimension id cached from the previous
+      ! file is stale. Without this, ensure_rdg_dim short-circuits on step 2
+      ! and def_var is handed a dimid belonging to a closed file:
+      !   "NetCDF error in def_var TAU_A_RDG: NetCDF: Invalid dimension ID"
+      dimid_rdg = -1
+      nrdg_save = 0
+
       ! Create file (NETCDF4 so redef is cheap; use NF90_CLOBBER|NF90_NETCDF4 if desired)
       ierr = nf90_create(filename, NF90_NETCDF4, ncid)
       call check_nc(ierr, 'nf90_create')
@@ -80,6 +88,14 @@ contains
       real(r8), optional, intent(in) :: lat_R(:), lon_R(:)
       integer :: ierr
       integer :: varid_lon_R, varid_lat_R, varid_time
+
+      ! Reset per-file module state. This routine creates a NEW file on every
+      ! call (one per timestep), so any dimension id cached from the previous
+      ! file is stale. Without this, ensure_rdg_dim short-circuits on step 2
+      ! and def_var is handed a dimid belonging to a closed file:
+      !   "NetCDF error in def_var TAU_A_RDG: NetCDF: Invalid dimension ID"
+      dimid_rdg = -1
+      nrdg_save = 0
 
       ! Create file (NETCDF4 so redef is cheap; use NF90_CLOBBER|NF90_NETCDF4 if desired)
       ierr = nf90_create(filename, NF90_NETCDF4, ncid)
