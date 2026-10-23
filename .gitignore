@@ -3,3 +3,9 @@
 .ipynb_checkpoints
 */__pycache__
 __pycache__
+
+# Case directories built by create_case.py. These hold a full copy of the
+# source tree plus compiled objects and binaries, so they must never be
+# committed -- they are regenerated from the top-level tree on demand.
+cases/
+archived_cases/

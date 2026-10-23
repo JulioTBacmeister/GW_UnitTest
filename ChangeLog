@@ -28,3 +28,77 @@ Fortran writes have been removed. Namelists have been split into atm_in and drv_
      checked into CAM yet. PR to be opened soon.
 
 This will be tagged as v3.0
+
+....
+Missing some commits
+.... 
+
+Add Beres convective GW source and unstructured-grid operators
+
+  Two additions to the offline driver, each inert unless its own namelist
+  flag is set.
+
+  gw_convect_calc_mod.F90: wraps gw_convect::gw_beres_src the way
+  gw_movmtn_calc_mod wraps the moving-mountain source, packaging the
+  source call, drag-profile solve, momentum/energy fixers and diagnostics
+  that live inline in gw_drag::gw_tend. Unlike movmtn, Beres cannot run on
+  a dummy table -- the lookup table IS the source spectrum -- so
+  gw_init_beres is a real reader for gw_drag_file, written against plain
+  netCDF rather than PIO. The table is read once, lazily, on first use.
+  Driver passes netdt as a dummy argument; it is currently a zero
+  placeholder pending a convective-heating dataset.
+
+  sphere_se_ops.F90: horizontal operators for unstructured column grids,
+  where sphere_ops' lat-lon differences do not apply. Moving least squares
+  on a nearest-neighbour stencil, second-order accurate, with stencils
+  built once per grid. Provides se_grad2/se_curl2/se_fronto mirroring the
+  sphere_* interfaces. This lets ERA5 and camsnap compute real vorticity
+  and frontogenesis instead of ZETA=0 and an unallocated FRONTGF -- the
+  latter segfaulted when use_gw_front was set on SE data.
+
+  Verification:
+    - Analytic spherical harmonics: 2nd-order convergence (1.81/2.10/1.98),
+      ~0.1% gradient and curl error on ne30pg3.
+    - Cross-check against sphere_ops on identical smooth fields: agreement
+      to 0.01-0.2%, gap growing with wavenumber as two 2nd-order schemes
+      should.
+    - ERA5-era5-2016-11-Rw050 reproduced bit-for-bit: all 12 output files
+      byte-identical (md5) to the Sep 10 run with the new sources off.
+    - XYMPAS regression byte-identical to the previous tag.
+
+  Note: gw_driver never read use_gw_convect_dp before this commit, so
+  cases whose atm_in sets it .true. in fact ran with no convective source.
+  Set it .false. to reproduce them.
+
+  Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+
+2026-10-23:
+Added the Beres convective source and horizontal operators for unstructured (SE) grids. Both are
+     inert unless their own namelist flag is set, and the orographic path is untouched.
+     Added src/gw_convect_calc_mod.F90 to reproduce the Beres scheme, in the same spirit as
+     gw_movmtn_calc_mod.F90 and gw_front_calc_mod.F90. Unlike movmtn, Beres cannot be run with a dummy
+     lookup table - the table IS the source spectrum - so gw_init_beres is a real reader for
+     gw_drag_file, written with plain netcdf instead of PIO. Table is read once, on first use.
+     NOTE: netdt (TTEND_DP in CAM) is passed in as an argument and is currently a zero placeholder,
+     so the scheme runs but produces nothing. Waiting on a convective heating dataset.
+     Added utils/sphere_se_ops.F90. The driver had no way to take horizontal derivatives on an
+     unstructured column list, which is why ERA5 ran with ZETA=0 and why use_gw_front on ERA5 or
+     camsnap segfaulted (FRONTGF was never allocated on those paths). This does moving least squares
+     on a nearest-neighbour stencil - second order, stencils built once per grid - and provides
+     se_grad2/se_curl2/se_fronto mirroring the sphere_* interfaces. ERA5 and camsnap now get real
+     vorticity and frontogenesis. Lat-lon paths (XY, XYMPAS) still use sphere_ops and are unchanged.
+     Added cases/ and archived_cases/ to .gitignore - they hold full build trees and must not be
+     committed.
+
+Checked ERA5-era5-2016-11-Rw050 against a rerun with the new code and the new sources off. All 12
+     output files are byte-identical (same md5) to the Sep 10 run. XYMPAS is byte-identical to v5.0
+     as well. Verification of the new operators: analytic spherical harmonics give 2nd-order
+     convergence (1.81/2.10/1.98) and ~0.1% error on ne30pg3, and they agree with the existing
+     lat-lon code to 0.01-0.2% on smooth fields.
+
+GOTCHA: gw_driver never actually read use_gw_convect_dp before this. Older cases whose atm_in says
+     use_gw_convect_dp = .true. were in fact run with NO convective source. Set it .false. to
+     reproduce them. It is not free - with pgwv=32 Beres carries 65 phase speeds through
+     gw_drag_prof vs 1 for rdg and movmtn, about +38% per step on ne30pg3.
+
+This will be tagged as v6.0

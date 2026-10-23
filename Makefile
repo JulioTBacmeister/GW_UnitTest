@@ -26,6 +26,7 @@ SRCS = \
     utils/namelist_utils.F90 \
     utils/phys_control.F90 \
     utils/cam_abortutils.F90 \
+    utils/sphere_se_ops.F90 \
     utils/namelist_mod.F90 \
     utils/coords_1d.F90 \
     utils/linear_1d_operators.F90 \
@@ -41,8 +42,10 @@ SRCS = \
     src/gw_rdg.F90 \
     src/gw_movmtn.F90 \
     src/gw_front.F90 \
+    src/gw_convect.F90 \
     src/gw_movmtn_calc_mod.F90 \
     src/gw_front_calc_mod.F90 \
+    src/gw_convect_calc_mod.F90 \
     src/gw_rdg_calc_mod.F90
 
 OBJS = $(SRCS:.F90=.o)

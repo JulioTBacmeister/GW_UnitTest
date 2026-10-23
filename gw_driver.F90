@@ -15,6 +15,9 @@ program gw_driver
   use geopotential, only: geopotential_t
   use dt_bump, only: bump_ymdh
   use sphere_ops, only: sphere_fronto_wrapper
+  ! Unstructured (SE grid) counterparts, for ncdata that is a bare list of
+  ! columns and so has no (i,j) structure for sphere_ops to difference along.
+  use sphere_se_ops, only: se_ops_init, se_ops_ready, se_curl2, se_fronto_wrapper
 
   ! set_band_rdg required to get band construct into
   use gw_rdg_calc_mod, only : gw_rdg_calc, set_band_rdg
@@ -28,6 +31,10 @@ program gw_driver
   use gw_front_calc_mod, only : gw_front_calc, set_band_front
   use gw_front_calc_mod, only : set_vramp_front => set_vramp
   use gw_front_calc_mod, only : report_from_within_front => report_from_within
+  ! set_band_convect required to get band construct into
+  use gw_convect_calc_mod, only : gw_convect_calc, set_band_convect
+  use gw_convect_calc_mod, only : set_vramp_convect => set_vramp
+  use gw_convect_calc_mod, only : report_from_within_convect => report_from_within
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !   Huge messy import of all likely namelist params
@@ -62,6 +69,9 @@ program gw_driver
   real(r8) , allocatable :: hyai(:), hybi(:), hyam(:), hybm(:)
   real(r8) , allocatable :: lon(:), lat(:), lon_R(:), lat_R(:)
   real(r8) , allocatable :: U(:,:,:), V(:,:,:), T(:,:,:), Q(:,:,:), ZETA(:,:,:), PS(:,:)
+  ! Convective heating rate (K s-1) driving the Beres source. This is
+  ! TTEND_DP off of pbuf in CAM; here it comes from a separate dataset.
+  real(r8) , allocatable :: NETDT(:,:,:)
   real(r8) , allocatable :: nm_(:,:,:), ni_(:,:,:), zm_(:,:,:), zi_(:,:,:), rhoi_(:,:,:)
   real(r8) , allocatable :: pint_(:,:,:), piln_(:,:,:)
 
@@ -88,7 +98,7 @@ program gw_driver
   type(physics_ptend) :: ptend
 
   ! Gravity wave "bands".
-  type(GWBand) :: band_oro , band_movmtn , band_front
+  type(GWBand) :: band_oro , band_movmtn , band_front , band_mid
   ! Horzontal wavelengths for bands [m].
   real(r8), parameter :: wavelength_mid = 1.e5_r8
   real(r8), parameter :: wavelength_long = 1.e6_r8
@@ -233,12 +243,34 @@ program gw_driver
 
         write(*,*)  "Made ","ZI   ",minval(zi), maxval(zi), shape(zi)
 
-        !-----------------------------
-        ! Need to figure ZETA for ERA5
-        ! Set dummy var=0 for now
-        !------------------------------
+        !--------------------------------------------------------------
+        ! ERA5 ncdata is an unstructured SE column list, so the lat-lon
+        ! operators in sphere_ops do not apply. Build the least-squares
+        ! stencils once for this grid and use them for both the relative
+        ! vorticity (movmtn) and the frontogenesis (front).
+        !--------------------------------------------------------------
+        ! Each field is built only for the source that consumes it, so that
+        ! a run with these sources off is unaffected by any of this -- both
+        ! in cost and in what lands in the history file.
         allocate( ZETA(ncol,pver,ntim)  )
         ZETA = 0._r8
+
+        if ( use_gw_movmtn_pbl .or. use_gw_front ) then
+           if (.not. se_ops_ready()) call se_ops_init( lat, lon )
+        end if
+
+        if ( use_gw_movmtn_pbl ) then
+           do n=1,ntim
+              call se_curl2( U(:,:,n), V(:,:,n), ZETA(:,:,n) )
+           end do
+           write(*,*) "Made ","ZETA   ",minval(ZETA), maxval(ZETA), shape(ZETA)
+        end if
+
+        if ( use_gw_front ) then
+           allocate( TH(ncol,pver,ntim) ,  FRONTGF(ncol,pver,ntim) ,  FRONTGA(ncol,pver,ntim)  )
+           TH  = T * ( (100000._r8 / pmid)**(rair/cpair) )
+           call se_fronto_wrapper( TH, U, V, FRONTGF, FRONTGA )
+        end if
 
      else if ( trim(ncdata_type) == 'XY_DATA') then
         write(*,*) "XY (regirdded) data"
@@ -414,9 +446,36 @@ program gw_driver
              gw_prndl, gw_qbo_hdepth_scaling, & 
              errstring)
 
+        !--------------------------------------------------------------
+        ! camsnap is also an unstructured SE column list. ZETA here is
+        ! CAM's own VORT4GW, read straight from the file, so it is left
+        ! alone -- only the frontogenesis fields need building.
+        !--------------------------------------------------------------
+        if ( use_gw_front ) then
+           if (.not. se_ops_ready()) call se_ops_init( lat, lon )
+           allocate( TH(ncol,pver,ntim) ,  FRONTGF(ncol,pver,ntim) ,  FRONTGA(ncol,pver,ntim)  )
+           TH  = T * ( (100000._r8 / pmid)**(rair/cpair) )
+           call se_fronto_wrapper( TH, U, V, FRONTGF, FRONTGA )
+        end if
+
      else
         write(*,*) "  You didn't give any valid calculation type/ncdata_type ..."
         STOP
+     end if
+
+     !--------------------------------------------------------------------
+     ! Convective heating for the Beres source. Guarded, so that nothing
+     ! here -- including the dataset read that replaces the placeholder --
+     ! is required when use_gw_convect_dp = .false.
+     !
+     ! PLACEHOLDER: zero heating, which makes gw_convect_calc a no-op. To
+     ! drive it, replace the fill below with a read of the heating dataset,
+     ! e.g.  call ncread_netdt( ncdata_netdt, NETDT )  -- shape must be
+     ! (ncol,pver,ntim), units K s-1, positive where convection heats.
+     !--------------------------------------------------------------------
+     if (use_gw_convect_dp) then
+        if (.not. allocated(NETDT)) allocate( NETDT(ncol,pver,ntim) )
+        NETDT = 0._r8
      end if
 
      allocate( dse(ncol,pver) )
@@ -433,6 +492,11 @@ program gw_driver
      write(*,*) " PGWV for fronts ",pgwv
      band_front = GWBand(pgwv, gw_dc, fcrit2, wavelength_mid)
 
+     ! Beres uses the same mid-scale spectral band as the frontal source.
+     ! Note gw_dc must match the lookup table in gw_drag_file (dc=2.5 for
+     ! newmfspectra40_dc25.nc) and pgwv must not exceed its PS dimension.
+     band_mid = GWBand(pgwv, gw_dc, fcrit2, wavelength_mid)
+
      call set_band_rdg(band_oro)
      call set_vramp_rdg()
      call report_from_within_rdg()
@@ -444,6 +508,10 @@ program gw_driver
      call set_band_front(band_front)
      call set_vramp_front()
      call report_from_within_front()
+
+     call set_band_convect(band_mid)
+     call set_vramp_convect()
+     call report_from_within_convect()
 
      if ( ( trim(ncdata_type) == 'XY_DATA') .or. &
           ( trim(ncdata_type) == 'XYMPAS_DATA')) then
@@ -566,6 +634,19 @@ program gw_driver
              ptend, flx_heat) 
      end if
 
+     if (use_gw_convect_dp) then
+        call gw_convect_calc( &
+             ncol, lchnk, dt, pref_edge, &
+             U(:,:,itime) , V(:,:,itime) , T(:,:,itime) , &
+             NETDT(:,:,itime) , &
+             PP , piln(:,:,itime) , zm, zi, &
+             nm, ni, rhoi, kvtt, Q(:,:,:), dse, &
+             effgw_beres_dp, &
+             gw_drag_file, &
+                                !++jtb  ptend defined in massively hacked physics_types
+             ptend, flx_heat, lat=lat) 
+     end if
+
      close( unit=20 )
      call ncfile_close()
      
@@ -607,6 +688,7 @@ subroutine free_fields( )
   if (allocated(TH))         deallocate(TH)
   if (allocated(Q))          deallocate(Q)
   if (allocated(ZETA))       deallocate(ZETA)
+  if (allocated(NETDT))      deallocate(NETDT)
   if (allocated(PS))         deallocate(PS)
 
   if (allocated(FRONTGF))    deallocate(FRONTGF)
